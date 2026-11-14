@@ -1,0 +1,12 @@
+{
+  "fit_seconds": 70.7,
+  "train_rows": 1025602,
+  "epochs_run": 10,
+  "best_epoch": 10,
+  "validate": {
+    "n": 132448,
+    "top1": 0.997229,
+    "top3": 0.999789,
+    "diff_kl": 0.359802
+  }
+}
