@@ -18,9 +18,10 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 .venv/bin/python -m src.train                           # logistic regression on all train rows (~20 s), scored on validate
 .venv/bin/python -m src.train --train-rows 50000        # quick run on a random subset
 .venv/bin/python -m src.train --no-demographics         # same model without SEX/AGE tokens
+.venv/bin/python -m src.train --model mlp --alpha 0.5   # MLP mixing hard label and differential (~1 min on MPS)
 ```
 
-Each training run writes to `runs/<timestamp>_<name>/` (git-ignored): `metrics.json`, `per_class.csv`, `subgroups.csv`, `probs_validate.npy`, the pickled model, and `_adjusted` variants of the metrics after post-hoc logit adjustment. There is no test runner or linter yet (`tests/` is empty). `requirements.txt` holds pinned top-level packages only; add new ones by hand with an exact version.
+Each training run writes to `runs/<timestamp>_<name>/` (git-ignored): `metrics.json`, `per_class.csv`, `subgroups.csv`, `probs_validate.npy`, the model (`model.pkl` or `model.pt`), `history.json` per epoch for the MLP, and `_adjusted` variants of the metrics after post-hoc logit adjustment. There is no test runner or linter yet (`tests/` is empty). `requirements.txt` holds pinned top-level packages only; add new ones by hand with an exact version.
 
 ## Data
 
@@ -35,9 +36,9 @@ Evidence encoding in `EVIDENCES`: a bare code (`E_91`) means "yes" to a binary q
 
 - `src/data.py`: the loading layer everything else should use. `load_all()` returns a dict of DataFrames (`train`, `validate`, `test`, `conditions`, `evidences`); `load_patients(split, nrows=...)` loads one split. List columns are parsed with fast string splitting rather than `ast.literal_eval` (relies on no condition name containing a quote). Full load takes ~20 s and ~0.5 GB.
 - `src/features.py`: streams each patient CSV in chunks and encodes every patient as a sorted set of token ids (evidence answers, INITIAL_EVIDENCE, demographic tokens `DEM_SEX_@_M` / `DEM_AGE_@_40-49`), saved CSR-style in `data/features/{split}.npz` with labels `y` and the differential as soft targets `diff`. `vocab.json` holds token and label order plus `demographic_ids`.
-- `src/models.py`: `to_csr()` turns an encoded split into a scipy matrix (optionally zeroing the demographic columns), `make_logreg()` is the baseline, `logit_adjust()` divides out the training prior.
-- `src/evaluate.py`: `evaluate(probs, y, labels, groups)` returns headline metrics (top-1/3/5, macro-F1, balanced accuracy, log-loss, ECE), a per-pathology table, and metrics per subgroup. `subgroups()` derives sex and age band from the demographic tokens, and severity and cancer/non-cancer from the true label. DDXPlus's differential metrics (DDR/DDP/DDF1) are not implemented yet.
-- `src/train.py`: CLI that trains, scores on validate (never test) and saves the run.
+- `src/models.py`: `to_csr()` turns an encoded split into a scipy matrix (optionally zeroing the demographic columns), `make_logreg()` is the baseline, `logit_adjust()` divides out the training prior. `MLP` uses an `EmbeddingBag` over token ids as its first layer (a linear layer on the multi-hot vector without building it); `SparseRows` slices CSR rows into its batches; `distillation_loss()` mixes hard-label cross-entropy with cross-entropy to the differential, weighted by `alpha`.
+- `src/evaluate.py`: `evaluate(probs, y, labels, groups)` returns headline metrics (top-1/3/5, macro-F1, balanced accuracy, log-loss, ECE, and `diff_kl` = KL(differential ‖ model) when the differential is passed), a per-pathology table, and metrics per subgroup. `subgroups()` derives sex and age band from the demographic tokens, and severity and cancer/non-cancer from the true label. DDXPlus's differential metrics (DDR/DDP/DDF1) are not implemented yet.
+- `src/train.py`: CLI that trains `--model logreg` or `--model mlp`, scores on validate (never test) and saves the run. The MLP early-stops on its own training objective computed on validate and defaults to MPS when available.
 - `notebooks/`: exploration only; move reusable code into `src/`. Notebooks find the repo root themselves and add it to `sys.path`, so `from src.data import ...` works whether opened from the root or `notebooks/`. `sampling.ipynb` saves samples to `data/samples/` as pickles (keeps list and category columns).
 
 ## Gotchas
@@ -95,5 +96,7 @@ One test-set run.
 ## Decisions so far
 
 Training is done on all 49 conditions and both demographics, SEX and AGE are trained.
+
+MLP default α = 0.5 (`--alpha`). On validate it keeps top-1 at 0.997 while matching the differential closely (diff_kl 0.36 vs 16 at α = 0), at the cost of calibration: the model predicts the hard-label/differential mix, so its top-class confidence (~0.6) understates its accuracy. Use α = 0 when calibrated confidence matters more than the differential. Post-hoc logit adjustment hurts soft-target models; don't use it with α > 0.
 
 

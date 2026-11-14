@@ -6,6 +6,8 @@ true label ids ``y``. Metrics:
   - top-1 / top-3 / top-5 accuracy
   - macro-F1 and balanced accuracy (mean per-class recall), so rare pathologies count
   - log-loss and expected calibration error (top-label, equal-width bins)
+  - diff_kl: KL(differential || model), how closely the model reproduces the dataset's
+    differential diagnosis distribution (only when the differential is passed in)
 
 Subgroups (equity analysis): SEX and age band come from the demographic tokens of the
 encoded split; severity and cancer/non-cancer come from the true pathology.
@@ -56,6 +58,13 @@ def expected_calibration_error(probs: np.ndarray, y: np.ndarray, n_bins: int = E
     return float(ece)
 
 
+def differential_kl(probs: np.ndarray, diff: np.ndarray, eps: float = 1e-12) -> float:
+    """Mean KL(diff || probs) over patients; 0 when the model matches the differential exactly."""
+    d = diff.astype(np.float64)
+    terms = np.where(d > 0, d * (np.log(np.clip(d, eps, None)) - np.log(np.clip(probs, eps, 1.0))), 0.0)
+    return float(terms.sum(axis=1).mean())
+
+
 def per_class_table(probs: np.ndarray, y: np.ndarray, labels: list[str]) -> pd.DataFrame:
     n_labels = len(labels)
     pred = probs.argmax(axis=1)
@@ -71,7 +80,8 @@ def per_class_table(probs: np.ndarray, y: np.ndarray, labels: list[str]) -> pd.D
                          "precision": precision, "f1": f1}, index=pd.Index(labels, name="pathology"))
 
 
-def summary_metrics(probs: np.ndarray, y: np.ndarray, labels: list[str]) -> dict[str, float]:
+def summary_metrics(probs: np.ndarray, y: np.ndarray, labels: list[str],
+                    diff: np.ndarray | None = None) -> dict[str, float]:
     """Headline metrics. Macro scores average over pathologies present in ``y``."""
     table = per_class_table(probs, y, labels)
     present = table[table.support > 0]
@@ -82,6 +92,8 @@ def summary_metrics(probs: np.ndarray, y: np.ndarray, labels: list[str]) -> dict
     out["balanced_acc"] = float(present.recall.mean())
     out["log_loss"] = log_loss(probs, y)
     out["ece"] = expected_calibration_error(probs, y)
+    if diff is not None:
+        out["diff_kl"] = differential_kl(probs, diff)
     return out
 
 
@@ -110,33 +122,35 @@ def subgroups(enc: EncodedSplit, vocab: dict, conditions_path: Path = DATA_DIR /
     return groups
 
 
-def subgroup_table(probs: np.ndarray, y: np.ndarray, labels: list[str], groups: pd.DataFrame
-                   ) -> pd.DataFrame:
+def subgroup_table(probs: np.ndarray, y: np.ndarray, labels: list[str], groups: pd.DataFrame,
+                   diff: np.ndarray | None = None) -> pd.DataFrame:
     """Summary metrics for every value of every group column."""
     rows = []
     for col in groups.columns:
         for value, idx in groups.groupby(col, sort=True).indices.items():
             rows.append({"group": col, "value": str(value),
-                         **summary_metrics(probs[idx], y[idx], labels)})
+                         **summary_metrics(probs[idx], y[idx], labels,
+                                           None if diff is None else diff[idx])})
     return pd.DataFrame(rows).set_index(["group", "value"])
 
 
 # ---------------------------------------------------------------- one call for everything
 
 def evaluate(probs: np.ndarray, y: np.ndarray, labels: list[str],
-             groups: pd.DataFrame | None = None) -> dict:
+             groups: pd.DataFrame | None = None, diff: np.ndarray | None = None) -> dict:
     """Returns {"summary": dict, "per_class": DataFrame, "subgroups": DataFrame | None}."""
     if probs.shape != (len(y), len(labels)):
         raise ValueError(f"probs shape {probs.shape} does not match ({len(y)}, {len(labels)})")
     return {
-        "summary": summary_metrics(probs, y, labels),
+        "summary": summary_metrics(probs, y, labels, diff),
         "per_class": per_class_table(probs, y, labels),
-        "subgroups": subgroup_table(probs, y, labels, groups) if groups is not None else None,
+        "subgroups": subgroup_table(probs, y, labels, groups, diff) if groups is not None else None,
     }
 
 
 def format_summary(summary: dict[str, float]) -> str:
     parts = [f"n={summary['n']:,}"]
     parts += [f"top{k}={summary[f'top{k}_acc']:.4f}" for k in TOP_KS]
-    parts += [f"{k}={summary[k]:.4f}" for k in ("macro_f1", "balanced_acc", "log_loss", "ece")]
+    parts += [f"{k}={summary[k]:.4f}" for k in ("macro_f1", "balanced_acc", "log_loss", "ece", "diff_kl")
+              if k in summary]
     return "  ".join(parts)
