@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>HealthQuality – Alustava terveydentilan arvio &amp; Alueellinen tilannekuva</title>
+  <title>HealthQuality – Hoidon automaattinen ensiarvio</title>
   <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
   <style>
     input[type="range"] {
@@ -13,7 +13,7 @@
 </head>
 <body class="bg-[#F3F6FB] text-slate-900 antialiased min-h-screen pb-24">
 
-  <!-- TOP HEADER (Stitch-tyyli) -->
+  <!-- TOP HEADER -->
   <header class="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-200 shadow-xs">
     <div class="max-w-6xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
       <div class="flex items-center gap-3">
@@ -24,26 +24,34 @@
           <div class="flex items-center gap-2 flex-wrap">
             <span class="text-[11px] font-extrabold tracking-wider uppercase text-[#0B3FB3]">HEALTHQUALITY</span>
             <span class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#E8EEFF] text-[#1D3B8B]">AZ • Equal Care</span>
-            <span id="engine-badge" class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1.5">
-              <span class="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
-              PyTorch MLP Aktiivinen
+            <span id="service-pill" class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+              Hoidon automaattinen ensiarvio
             </span>
           </div>
-          <h1 class="text-base sm:text-lg font-bold text-slate-900 leading-tight">
-            Alustava terveydentilan arvio ja erikoisalaohjaus
+          <h1 id="header-title" class="text-base sm:text-lg font-bold text-slate-900 leading-tight">
+            Hoidon automaattinen ensiarvio ja erikoisalaohjaus
           </h1>
         </div>
       </div>
 
-      <!-- Desktop Tab Switcher -->
-      <div class="hidden sm:flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
-        <button onclick="switchTab('patient')" id="top-tab-patient" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all">
-          1. Oirekysely • Potilas
-        </button>
-        <button onclick="switchTab('society')" id="top-tab-society" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5">
-          2. Tilannekuva • Kuntataulukko
-          <span id="society-badge-top" class="hidden px-1.5 py-0.2 rounded-full bg-emerald-600 text-white text-[10px]">+1</span>
-        </button>
+      <div class="flex items-center gap-2.5 flex-wrap">
+        <!-- Language Switcher (FI / SV / EN) -->
+        <div class="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200" role="group" aria-label="Language selector">
+          <button type="button" onclick="setLanguage('fi')" id="lang-btn-fi" class="px-2.5 py-1 rounded-lg text-xs font-bold transition">FI</button>
+          <button type="button" onclick="setLanguage('sv')" id="lang-btn-sv" class="px-2.5 py-1 rounded-lg text-xs font-bold transition">SV</button>
+          <button type="button" onclick="setLanguage('en')" id="lang-btn-en" class="px-2.5 py-1 rounded-lg text-xs font-bold transition">EN</button>
+        </div>
+
+        <!-- Desktop Tab Switcher -->
+        <div class="hidden sm:flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
+          <button onclick="switchTab('patient')" id="top-tab-patient" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all">
+            1. Oirekysely • Potilas
+          </button>
+          <button onclick="switchTab('society')" id="top-tab-society" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5">
+            <span id="top-tab-society-label">2. Tilannekuva • Kuntataulukko</span>
+            <span id="society-badge-top" class="hidden px-1.5 py-0.2 rounded-full bg-emerald-600 text-white text-[10px]">+1</span>
+          </button>
+        </div>
       </div>
     </div>
   </header>
@@ -56,123 +64,123 @@
     <!-- ================================================================= -->
     <section id="view-patient" class="space-y-4">
 
-      <!-- Sub-banner & Pikakokeilut -->
-      <div class="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-2xs flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-        <div class="space-y-1">
-          <div class="flex items-center gap-2 flex-wrap">
-            <span class="text-xs font-extrabold tracking-wide uppercase text-[#0B3FB3]">PYTORCH MLP (α = 0.5 • 49 SAIRAUTTA)</span>
-            <span id="model-stats-pill" class="px-2 py-0.5 rounded-lg text-[11px] font-mono bg-slate-100 text-slate-700 border border-slate-200">
-              982 tokenia • Val Top-1: 99.7 %
-            </span>
-            <label class="flex items-center gap-1.5 text-xs text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-lg border border-slate-200">
-              <span>Vastaavuuskynnys:</span>
-              <select id="threshold-select" onchange="onThresholdChange()" class="bg-transparent font-semibold text-slate-900 focus:outline-none">
-                <option value="0.20">20 %</option>
-                <option value="0.25" selected>25 %</option>
-                <option value="0.35">35 %</option>
-              </select>
-            </label>
+      <!-- Intro Banner, Threshold Slider & Rich Preset Profiles -->
+      <div class="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 shadow-2xs space-y-4">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div class="space-y-1 max-w-2xl">
+            <div id="banner-eyebrow" class="text-xs font-extrabold tracking-wide uppercase text-[#0B3FB3]">
+              HOIDON AUTOMAATTINEN ENSIARVIO
+            </div>
+            <p id="banner-desc" class="text-xs sm:text-sm text-slate-600 leading-relaxed">
+              Kyseessä on alustava hoidon arvio, joka voi antaa osviittaa hoidon tarpeelle ja sopivalle erikoisalalle ilmoittamiesi oireiden ja taustatietojen perusteella. Palvelu ei korvaa lääkärin tekemää diagnoosia.
+            </p>
           </div>
-          <p class="text-xs text-slate-600">
-            Kysely kartoittaa suoraan neuroverkon koulutusdatan profiloivat tausta- ja oireparametrit ja suosittelee vastaanottokäyntiä, mikäli oirekuva vastaa tutkitun sairauden piirteitä.
-          </p>
+
+          <!-- Interactive Match Threshold Control -->
+          <div class="bg-[#F4F6FA] rounded-xl border border-slate-200 px-3.5 py-2.5 shrink-0 space-y-1 min-w-[230px]">
+            <div class="flex items-center justify-between gap-3 text-xs">
+              <span id="threshold-label" class="font-semibold text-slate-700">Vastaavuuskynnys:</span>
+              <span id="threshold-value-pill" class="px-2 py-0.5 rounded-md bg-[#0B3FB3] text-white font-extrabold text-xs">25 %</span>
+            </div>
+            <input
+              id="threshold-slider"
+              type="range"
+              min="10"
+              max="75"
+              step="5"
+              value="25"
+              oninput="onThresholdInput(this.value)"
+              class="w-full cursor-pointer"
+            />
+            <div class="flex justify-between text-[10px] text-slate-400 font-medium">
+              <span id="threshold-low-hint">Herkempi (10 %)</span>
+              <span id="threshold-high-hint">Tiukempi (75 %)</span>
+            </div>
+          </div>
         </div>
 
-        <!-- Esimerkkipotilaat nopeaan testaukseen (ei punaista pelotteluväriä) -->
-        <div class="flex items-center gap-1.5 flex-wrap">
-          <span class="text-xs font-medium text-slate-500 mr-1">Esimerkkiprofiilit:</span>
-          <button onclick="loadPreset('ambiguous')" class="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 transition">
-            Epäspesifi (&lt;25 %)
-          </button>
-          <button onclick="loadPreset('flu')" class="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 transition">
-            Flunssa (Kotihoito)
-          </button>
-          <button onclick="loadPreset('asthma')" class="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-[#EEF3FF] hover:bg-[#DCE5FF] text-[#0B3FB3] border border-[#C9D8FF] transition">
-            Astmaoireisto
-          </button>
-          <button onclick="loadPreset('lung_check')" class="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-[#FEF9C3] hover:bg-[#FEF08A] text-[#854D0E] border border-[#FDE047] transition">
-            Pitkittynyt yskä
-          </button>
-          <button onclick="loadPreset('epigastric_check')" class="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-[#FEF9C3] hover:bg-[#FEF08A] text-[#854D0E] border border-[#FDE047] transition">
-            Ylävatsa &amp; painonlasku
-          </button>
+        <!-- Example Profiles: Good Wellbeing + Cancer / Further Evaluation -->
+        <div class="pt-3 border-t border-slate-100 space-y-2.5">
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <span id="presets-well-label" class="text-[11px] font-bold uppercase tracking-wide text-emerald-800 mr-1">
+              Esimerkit – vointi hyvä / lievä:
+            </span>
+            <button type="button" onclick="loadPreset('well_none')" id="preset-well_none" class="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200 transition"></button>
+            <button type="button" onclick="loadPreset('well_mild')" id="preset-well_mild" class="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200 transition"></button>
+            <button type="button" onclick="loadPreset('well_allergy')" id="preset-well_allergy" class="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200 transition"></button>
+            <button type="button" onclick="loadPreset('well_cold')" id="preset-well_cold" class="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200 transition"></button>
+          </div>
+
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <span id="presets-cancer-label" class="text-[11px] font-bold uppercase tracking-wide text-[#854D0E] mr-1">
+              Esimerkit – syöpäepäilyt ja jatkoselvittelyt:
+            </span>
+            <button type="button" onclick="loadPreset('cancer_lung_smoker')" id="preset-cancer_lung_smoker" class="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-[#FEF9C3] hover:bg-[#FEF08A] text-[#854D0E] border border-[#FDE047] transition"></button>
+            <button type="button" onclick="loadPreset('cancer_lung_exsmoker')" id="preset-cancer_lung_exsmoker" class="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-[#FEF9C3] hover:bg-[#FEF08A] text-[#854D0E] border border-[#FDE047] transition"></button>
+            <button type="button" onclick="loadPreset('cancer_lung_nonsmoker')" id="preset-cancer_lung_nonsmoker" class="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-[#FEF9C3] hover:bg-[#FEF08A] text-[#854D0E] border border-[#FDE047] transition"></button>
+            <button type="button" onclick="loadPreset('cancer_panc_epigastric')" id="preset-cancer_panc_epigastric" class="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-[#FEF9C3] hover:bg-[#FEF08A] text-[#854D0E] border border-[#FDE047] transition"></button>
+            <button type="button" onclick="loadPreset('cancer_panc_jaundice')" id="preset-cancer_panc_jaundice" class="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-[#FEF9C3] hover:bg-[#FEF08A] text-[#854D0E] border border-[#FDE047] transition"></button>
+            <button type="button" onclick="loadPreset('cancer_anemia')" id="preset-cancer_anemia" class="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-[#FEF9C3] hover:bg-[#FEF08A] text-[#854D0E] border border-[#FDE047] transition"></button>
+            <button type="button" onclick="loadPreset('asthma')" id="preset-asthma" class="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-[#EEF3FF] hover:bg-[#DCE5FF] text-[#0B3FB3] border border-[#C9D8FF] transition"></button>
+          </div>
         </div>
       </div>
 
-      <!-- Two-column layout on laptop, stacked on mobile -->
+      <!-- Two-column layout -->
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
 
-        <!-- LEFT COLUMN: Kyselykortit 1 - 3 -->
+        <!-- LEFT COLUMN: Survey Cards 1 - 3 -->
         <div class="lg:col-span-7 space-y-4">
 
-          <!-- KORTTI 1: PERUSPROFIILI -->
+          <!-- CARD 1: PERUSPROFIILI -->
           <div class="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs space-y-4">
             <div class="flex items-start gap-3">
               <div class="w-9 h-9 rounded-xl bg-[#EEF3FF] text-[#0B3FB3] flex items-center justify-center font-bold text-sm shrink-0">
                 1
               </div>
               <div>
-                <h2 class="text-base font-bold text-slate-900">1. Perusprofiili (Demografiset parametrit)</h2>
-                <p class="text-xs text-slate-500">Koulutusdatan ikä- ja sukupuoliparametrit, matkustusalue sekä asuinkunta</p>
+                <h2 id="card1-title" class="text-base font-bold text-slate-900">1. Perustiedot</h2>
+                <p id="card1-sub" class="text-xs text-slate-500">Asuinkunta, ikäryhmä, sukupuoli, matkustustiedot ja oireiden kesto</p>
               </div>
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <!-- Asuinkunta -->
               <div class="space-y-1.5">
-                <label class="block text-xs font-semibold text-slate-700">Asuinkunta (Hyvinvointialue)</label>
-                <select id="municipality-select" class="w-full rounded-xl bg-[#F4F6FA] border border-slate-200 px-3.5 py-2.5 text-sm font-medium text-slate-900 focus:outline-none focus:border-[#0B3FB3]">
-                </select>
+                <label id="lbl-municipality" class="block text-xs font-semibold text-slate-700">Asuinkunta (Hyvinvointialue)</label>
+                <select id="municipality-select" class="w-full rounded-xl bg-[#F4F6FA] border border-slate-200 px-3.5 py-2.5 text-sm font-medium text-slate-900 focus:outline-none focus:border-[#0B3FB3]"></select>
               </div>
 
-              <!-- Matkustus ulkomailla (E_204) -->
               <div class="space-y-1.5">
-                <label class="block text-xs font-semibold text-slate-700">Matkustus ulkomailla (viim. 4 vko)</label>
-                <select id="travel-select" class="w-full rounded-xl bg-[#F4F6FA] border border-slate-200 px-3.5 py-2.5 text-sm font-medium text-slate-900 focus:outline-none focus:border-[#0B3FB3]">
-                </select>
+                <label id="lbl-travel" class="block text-xs font-semibold text-slate-700">Matkustus ulkomailla (viim. 4 vko)</label>
+                <select id="travel-select" class="w-full rounded-xl bg-[#F4F6FA] border border-slate-200 px-3.5 py-2.5 text-sm font-medium text-slate-900 focus:outline-none focus:border-[#0B3FB3]"></select>
               </div>
             </div>
 
-            <!-- Ikäryhmä (8 kpl suoraan src/features.py:stä) -->
             <div class="space-y-1.5">
-              <label class="block text-xs font-semibold text-slate-700">Ikäryhmä (vuotta)</label>
+              <label id="lbl-age" class="block text-xs font-semibold text-slate-700">Ikäryhmä (vuotta)</label>
               <div id="age-grid" class="grid grid-cols-4 gap-2"></div>
             </div>
 
-            <!-- Biologinen sukupuoli -->
             <div class="space-y-1.5">
-              <label class="block text-xs font-semibold text-slate-700">Biologinen sukupuoli</label>
+              <label id="lbl-sex" class="block text-xs font-semibold text-slate-700">Biologinen sukupuoli</label>
               <div class="grid grid-cols-3 gap-2" id="sex-grid">
-                <button type="button" onclick="setSex('F')" data-sex="F" class="sex-btn py-2.5 px-3 rounded-xl text-xs font-semibold border transition">
-                  ♀ Nainen (F)
-                </button>
-                <button type="button" onclick="setSex('M')" data-sex="M" class="sex-btn py-2.5 px-3 rounded-xl text-xs font-semibold border transition">
-                  ♂ Mies (M)
-                </button>
-                <button type="button" onclick="setSex('U')" data-sex="U" class="sex-btn py-2.5 px-3 rounded-xl text-xs font-semibold border transition">
-                  Ei määritelty
-                </button>
+                <button type="button" onclick="setSex('F')" data-sex="F" id="sex-btn-f" class="sex-btn py-2.5 px-3 rounded-xl text-xs font-semibold border transition"></button>
+                <button type="button" onclick="setSex('M')" data-sex="M" id="sex-btn-m" class="sex-btn py-2.5 px-3 rounded-xl text-xs font-semibold border transition"></button>
+                <button type="button" onclick="setSex('U')" data-sex="U" id="sex-btn-u" class="sex-btn py-2.5 px-3 rounded-xl text-xs font-semibold border transition"></button>
               </div>
             </div>
 
-            <!-- Oireiden kokonaiskesto -->
             <div class="space-y-1.5">
-              <label class="block text-xs font-semibold text-slate-700">Oireiden kokonaiskesto</label>
+              <label id="lbl-duration" class="block text-xs font-semibold text-slate-700">Oireiden kokonaiskesto</label>
               <div class="grid grid-cols-3 gap-2" id="duration-grid">
-                <button type="button" onclick="setDuration('<1w')" data-dur="<1w" class="dur-btn py-2.5 px-3 rounded-xl text-xs font-semibold border transition">
-                  &lt; 1 viikko
-                </button>
-                <button type="button" onclick="setDuration('1-3w')" data-dur="1-3w" class="dur-btn py-2.5 px-3 rounded-xl text-xs font-semibold border transition">
-                  1–3 viikkoa
-                </button>
-                <button type="button" onclick="setDuration('>3w')" data-dur=">3w" class="dur-btn py-2.5 px-3 rounded-xl text-xs font-semibold border transition">
-                  &gt; 3 viikkoa
-                </button>
+                <button type="button" onclick="setDuration('<1w')" data-dur="<1w" id="dur-btn-lt1w" class="dur-btn py-2.5 px-3 rounded-xl text-xs font-semibold border transition"></button>
+                <button type="button" onclick="setDuration('1-3w')" data-dur="1-3w" id="dur-btn-1_3w" class="dur-btn py-2.5 px-3 rounded-xl text-xs font-semibold border transition"></button>
+                <button type="button" onclick="setDuration('>3w')" data-dur=">3w" id="dur-btn-gt3w" class="dur-btn py-2.5 px-3 rounded-xl text-xs font-semibold border transition"></button>
               </div>
             </div>
           </div>
 
-          <!-- KORTTI 2: TAUSTATEKIJÄT -->
+          <!-- CARD 2: TAUSTATEKIJÄT -->
           <div class="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs space-y-4">
             <div class="flex items-start justify-between gap-3">
               <div class="flex items-start gap-3">
@@ -180,8 +188,8 @@
                   2
                 </div>
                 <div>
-                  <h2 class="text-base font-bold text-slate-900">2. Profiloivat taustatekijät (Antecedents)</h2>
-                  <p class="text-xs text-slate-500">Elintavat, todetut perussairaudet ja lähisuvun sairausrasite koulutusdatasta</p>
+                  <h2 id="card2-title" class="text-base font-bold text-slate-900">2. Esitiedot ja taustatekijät</h2>
+                  <p id="card2-sub" class="text-xs text-slate-500">Elintavat, todetut perussairaudet ja lähisuvun sairaudet</p>
                 </div>
               </div>
               <span id="selected-ant-pill" class="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 shrink-0">
@@ -192,7 +200,7 @@
             <div id="antecedents-container" class="space-y-4"></div>
           </div>
 
-          <!-- KORTTI 3: NYKYISET OIREET -->
+          <!-- CARD 3: NYKYISET OIREET -->
           <div class="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs space-y-4">
             <div class="flex items-start justify-between gap-3">
               <div class="flex items-start gap-3">
@@ -200,8 +208,8 @@
                   3
                 </div>
                 <div>
-                  <h2 class="text-base font-bold text-slate-900">3. Nykyiset oireet (Symptoms)</h2>
-                  <p class="text-xs text-slate-500">Valitse kaikki tämänhetkiset oireesi neuroverkon alustavaa arviota varten</p>
+                  <h2 id="card3-title" class="text-base font-bold text-slate-900">3. Nykyiset oireet</h2>
+                  <p id="card3-sub" class="text-xs text-slate-500">Valitse kaikki tämänhetkiset oireesi hoidon automaattista ensiarviota varten</p>
                 </div>
               </div>
               <span id="selected-count-pill" class="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 shrink-0">
@@ -211,125 +219,124 @@
 
             <div id="symptoms-container" class="space-y-4"></div>
 
-            <!-- EHDOLLINEN LISÄLAATIKKO 1: KIVUN TARKENNUS (DDXPlus E_53 -> E_54..E_59) -->
+            <!-- CONDITIONAL PANEL 1: PAIN -->
             <div id="pain-panel" class="hidden rounded-2xl bg-[#F4F6FA] border border-slate-300/80 p-4 space-y-3">
               <div class="flex items-center justify-between">
-                <span class="text-xs font-bold text-slate-800">Kivun tarkennus (DDXPlus-kipuparametrit E_54–E_59)</span>
-                <span class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#DCE5FF] text-[#0B3FB3]">Tarkentava</span>
+                <span id="pain-panel-title" class="text-xs font-bold text-slate-800">Kivun tarkennus</span>
+                <span id="pain-panel-tag" class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#DCE5FF] text-[#0B3FB3]">Tarkentava</span>
               </div>
 
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div class="space-y-1">
                   <div class="flex items-center justify-between text-xs">
-                    <span class="text-slate-600 font-medium">Voimakkuus (0–10):</span>
+                    <span id="pain-vas-title" class="text-slate-600 font-medium">Voimakkuus (1–10):</span>
                     <span id="pain-vas-label" class="font-bold text-[#0B3FB3]">5 / 10</span>
                   </div>
-                  <input id="pain-vas" type="range" min="1" max="10" value="5" oninput="document.getElementById('pain-vas-label').textContent = this.value + ' / 10'" class="w-full" />
+                  <input id="pain-vas" type="range" min="1" max="10" value="5" oninput="document.getElementById('pain-vas-label').textContent = this.value + ' / 10'; scheduleAnalysis()" class="w-full" />
                 </div>
 
                 <div class="space-y-1">
                   <div class="flex items-center justify-between text-xs">
-                    <span class="text-slate-600 font-medium">Alkamisnopeus (1=hidas, 10=äkillinen):</span>
+                    <span id="pain-onset-title" class="text-slate-600 font-medium">Alkamisnopeus (1=hidas, 10=äkillinen):</span>
                     <span id="pain-onset-label" class="font-bold text-[#0B3FB3]">5 / 10</span>
                   </div>
-                  <input id="pain-onset" type="range" min="1" max="10" value="5" oninput="document.getElementById('pain-onset-label').textContent = this.value + ' / 10'" class="w-full" />
+                  <input id="pain-onset" type="range" min="1" max="10" value="5" oninput="document.getElementById('pain-onset-label').textContent = this.value + ' / 10'; scheduleAnalysis()" class="w-full" />
                 </div>
               </div>
 
               <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
                 <div>
-                  <label class="block text-[11px] font-semibold text-slate-600 mb-1">Pääasiallinen sijainti (E_55)</label>
-                  <select id="pain-location" class="w-full rounded-xl bg-white border border-slate-200 px-3 py-2 text-xs font-medium text-slate-900"></select>
+                  <label id="pain-loc-lbl" class="block text-[11px] font-semibold text-slate-600 mb-1">Pääasiallinen sijainti</label>
+                  <select id="pain-location" onchange="scheduleAnalysis()" class="w-full rounded-xl bg-white border border-slate-200 px-3 py-2 text-xs font-medium text-slate-900"></select>
                 </div>
                 <div>
-                  <label class="block text-[11px] font-semibold text-slate-600 mb-1">Kivun luonne (E_54)</label>
-                  <select id="pain-character" class="w-full rounded-xl bg-white border border-slate-200 px-3 py-2 text-xs font-medium text-slate-900"></select>
+                  <label id="pain-char-lbl" class="block text-[11px] font-semibold text-slate-600 mb-1">Kivun luonne</label>
+                  <select id="pain-character" onchange="scheduleAnalysis()" class="w-full rounded-xl bg-white border border-slate-200 px-3 py-2 text-xs font-medium text-slate-900"></select>
                 </div>
                 <div>
-                  <label class="block text-[11px] font-semibold text-slate-600 mb-1">Kivun säteily (E_57)</label>
-                  <select id="pain-radiation" class="w-full rounded-xl bg-white border border-slate-200 px-3 py-2 text-xs font-medium text-slate-900"></select>
+                  <label id="pain-rad-lbl" class="block text-[11px] font-semibold text-slate-600 mb-1">Kivun säteily</label>
+                  <select id="pain-radiation" onchange="scheduleAnalysis()" class="w-full rounded-xl bg-white border border-slate-200 px-3 py-2 text-xs font-medium text-slate-900"></select>
                 </div>
               </div>
             </div>
 
-            <!-- EHDOLLINEN LISÄLAATIKKO 2: TURVOTUS (DDXPlus E_151 -> E_152) -->
+            <!-- CONDITIONAL PANEL 2: SWELLING -->
             <div id="swelling-panel" class="hidden rounded-2xl bg-[#F4F6FA] border border-slate-300/80 p-4 space-y-2">
               <div class="flex items-center justify-between">
-                <span class="text-xs font-bold text-slate-800">Turvotuksen sijainti (DDXPlus E_152)</span>
-                <span class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#DCE5FF] text-[#0B3FB3]">Tarkentava</span>
+                <span id="swelling-panel-title" class="text-xs font-bold text-slate-800">Turvotuksen sijainti</span>
+                <span id="swelling-panel-tag" class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#DCE5FF] text-[#0B3FB3]">Tarkentava</span>
               </div>
               <div>
-                <select id="swelling-location" class="w-full rounded-xl bg-white border border-slate-200 px-3 py-2 text-xs font-medium text-slate-900"></select>
+                <select id="swelling-location" onchange="scheduleAnalysis()" class="w-full rounded-xl bg-white border border-slate-200 px-3 py-2 text-xs font-medium text-slate-900"></select>
               </div>
             </div>
 
-            <!-- EHDOLLINEN LISÄLAATIKKO 3: IHOMUUTOS / IHON VÄRI (DDXPlus E_129 -> E_130..E_136) -->
+            <!-- CONDITIONAL PANEL 3: SKIN / RASH -->
             <div id="rash-panel" class="hidden rounded-2xl bg-[#F4F6FA] border border-slate-300/80 p-4 space-y-3">
               <div class="flex items-center justify-between">
-                <span class="text-xs font-bold text-slate-800">Ihomuutoksen tai ihon värin tarkennus (DDXPlus E_130–E_136)</span>
-                <span class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#DCE5FF] text-[#0B3FB3]">Tarkentava</span>
+                <span id="rash-panel-title" class="text-xs font-bold text-slate-800">Ihomuutoksen tai ihon värin tarkennus</span>
+                <span id="rash-panel-tag" class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#DCE5FF] text-[#0B3FB3]">Tarkentava</span>
               </div>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label class="block text-[11px] font-semibold text-slate-600 mb-1">Ihomuutoksen / ihon väri (E_130)</label>
-                  <select id="rash-color" class="w-full rounded-xl bg-white border border-slate-200 px-3 py-2 text-xs font-medium text-slate-900"></select>
+                  <label id="rash-color-lbl" class="block text-[11px] font-semibold text-slate-600 mb-1">Ihomuutoksen tai ihon väri</label>
+                  <select id="rash-color" onchange="scheduleAnalysis()" class="w-full rounded-xl bg-white border border-slate-200 px-3 py-2 text-xs font-medium text-slate-900"></select>
                 </div>
                 <div class="space-y-1">
                   <div class="flex items-center justify-between text-xs">
-                    <span class="text-slate-600 font-medium">Kutinan voimakkuus (0–10):</span>
+                    <span id="rash-itch-title" class="text-slate-600 font-medium">Kutinan voimakkuus (0–10):</span>
                     <span id="rash-itch-label" class="font-bold text-[#0B3FB3]">4 / 10</span>
                   </div>
-                  <input id="rash-itch" type="range" min="0" max="10" value="4" oninput="document.getElementById('rash-itch-label').textContent = this.value + ' / 10'" class="w-full" />
+                  <input id="rash-itch" type="range" min="0" max="10" value="4" oninput="document.getElementById('rash-itch-label').textContent = this.value + ' / 10'; scheduleAnalysis()" class="w-full" />
                 </div>
               </div>
               <label class="inline-flex items-center gap-2 text-xs text-slate-700 font-medium cursor-pointer">
-                <input id="rash-swollen" type="checkbox" class="rounded border-slate-300 text-[#0B3FB3]" />
-                <span>Ihoalue on koholla tai turvonnut (E_132)</span>
+                <input id="rash-swollen" type="checkbox" onchange="scheduleAnalysis()" class="rounded border-slate-300 text-[#0B3FB3]" />
+                <span id="rash-swollen-lbl">Ihoalue on koholla tai turvonnut</span>
               </label>
             </div>
           </div>
 
-          <!-- PÄÄNAPPI: SUORITA ANALYYSI -->
-          <button type="button" onclick="runAnalysis()" class="w-full py-4 px-5 rounded-2xl bg-[#0B3FB3] hover:bg-[#09328F] active:scale-[0.99] text-white font-bold text-sm sm:text-base shadow-md transition flex items-center justify-center gap-2">
-            <span>Muodosta alustava terveydentilan arvio (PyTorch MLP)</span>
+          <!-- PRIMARY ACTION BUTTON -->
+          <button type="button" onclick="runAnalysis(true)" class="w-full py-4 px-5 rounded-2xl bg-[#0B3FB3] hover:bg-[#09328F] active:scale-[0.99] text-white font-bold text-sm sm:text-base shadow-md transition flex items-center justify-center gap-2">
+            <span id="btn-run-label">Muodosta hoidon automaattinen ensiarvio</span>
           </button>
-          <p class="text-center text-[11px] text-slate-500">
-            Syöttää valitut parametrit koulutetulle monikerrosneuroverkolle (49 sairausluokkaa) ja arvioi vastaanottotarpeen rauhallisesti.
+          <p id="btn-run-sub" class="text-center text-[11px] text-slate-500">
+            Kyseessä on alustava hoidon arvio, joka antaa osviittaa hoidon tarpeesta ja ohjaa tarvittaessa oikealle erikoisalalle.
           </p>
         </div>
 
-        <!-- RIGHT COLUMN: TULOSKORTIT -->
+        <!-- RIGHT COLUMN: RESULT CARDS -->
         <div class="lg:col-span-5 lg:sticky lg:top-20 space-y-4" id="results-column">
           <div id="result-placeholder" class="bg-white rounded-2xl border border-dashed border-slate-300 p-8 text-center space-y-2">
             <div class="w-12 h-12 rounded-2xl bg-[#EEF3FF] text-[#0B3FB3] mx-auto flex items-center justify-center font-bold text-xl">
               ✓
             </div>
-            <h3 class="text-sm font-bold text-slate-800">Valmis neuroverkkoarvioon</h3>
-            <p class="text-xs text-slate-500 leading-relaxed">
-              Valitse vasemmalta profiili, mahdolliset taustatekijät ja nykyiset oireet, ja paina <b>Muodosta alustava terveydentilan arvio</b>.
+            <h3 id="placeholder-title" class="text-sm font-bold text-slate-800">Valmis hoidon automaattiseen ensiarvioon</h3>
+            <p id="placeholder-desc" class="text-xs text-slate-500 leading-relaxed">
+              Valitse vasemmalta perustiedot, mahdolliset esitiedot ja nykyiset oireet.
             </p>
           </div>
 
           <div id="result-cards" class="hidden space-y-4">
-            <!-- 1. ALUSTAVA TERVEYDENTILAN ARVIO & HOIDONOHJAUS (PEHMEÄ KELTAINEN / RAUHALLINEN VIHREÄ) -->
+            <!-- 1. EVALUATION & GUIDANCE CARD -->
             <div id="urgency-card" class="rounded-2xl border p-5 shadow-2xs space-y-3 border-l-4 transition-colors">
               <div class="flex items-center justify-between gap-2 flex-wrap">
                 <span id="urgency-badge" class="px-2.5 py-1 rounded-full text-[11px] font-bold"></span>
-                <span id="engine-run-tag" class="text-[11px] font-mono text-slate-500"></span>
               </div>
               <h3 id="urgency-title" class="text-base font-extrabold text-slate-900 leading-snug"></h3>
               <p id="urgency-text" class="text-xs text-slate-700 leading-relaxed"></p>
 
-              <div id="visit-reassurance" class="hidden rounded-xl bg-white/80 border border-[#FDE68A] p-3 text-xs text-[#78350F] leading-relaxed">
-                <b>Rauhallinen jatko-ohje:</b> Alustava arvio ei ole diagnoosi, vaan apuväline oikea-aikaiseen hoidon tarpeen arvioon. Varaa aika terveydenhuollon vastaanotolle tutkittavaksi ja ota tämä oireyhteenveto mukaan.
-              </div>
+              <div id="duration-box" class="hidden rounded-xl bg-[#FEFCE8] border border-[#FDE68A] p-3 text-xs text-[#854D0E] font-medium leading-relaxed"></div>
+
+              <div id="visit-reassurance" class="hidden rounded-xl bg-white/85 border border-[#FDE68A] p-3 text-xs text-[#78350F] leading-relaxed"></div>
 
               <div id="geriatric-box" class="hidden rounded-xl bg-indigo-50/80 border border-indigo-200 p-3 text-xs text-indigo-900 leading-relaxed"></div>
             </div>
 
-            <!-- 2. SUOSITELTU SUOMALAINEN ERIKOISALA -->
+            <!-- 2. RECOMMENDED SPECIALTY -->
             <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-2xs space-y-3">
-              <div class="text-[11px] font-bold tracking-wider uppercase text-slate-500">
+              <div id="specialty-header" class="text-[11px] font-bold tracking-wider uppercase text-slate-500">
                 SUOSITELTU TUTKIMUSLINJA / ERIKOISALA
               </div>
               <div class="flex flex-wrap items-center gap-2">
@@ -337,38 +344,30 @@
                 <div id="specialty-exclusion" class="hidden px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 border border-slate-200 text-xs font-semibold"></div>
               </div>
               <p id="specialty-rationale" class="text-xs text-slate-600 leading-relaxed"></p>
-
-              <!-- Neuroverkon syötevektorin läpinäkyvyys -->
-              <details class="pt-1 border-t border-slate-100">
-                <summary class="text-[11px] font-semibold text-slate-500 cursor-pointer hover:text-slate-700">
-                  Näytä neuroverkolle syötetyt opetusdatatokenit (<span id="token-count">0</span> kpl)
-                </summary>
-                <div id="token-pills" class="mt-2 flex flex-wrap gap-1"></div>
-              </details>
             </div>
 
-            <!-- 3. TOP-3 TAUTIVASTAAVUUDET (PYTORCH MLP) -->
+            <!-- 3. TOP-3 MATCHES -->
             <div id="top3-card" class="bg-white rounded-2xl border border-slate-200 p-5 shadow-2xs space-y-3">
               <div class="flex items-center justify-between gap-2">
-                <h3 class="text-sm font-extrabold text-slate-900">Top-3 Tautivastaavuudet (Neuroverkko)</h3>
-                <span class="text-[11px] font-mono text-slate-500">49 luokkaa</span>
+                <h3 id="top3-title" class="text-sm font-extrabold text-slate-900">Hoidon automaattinen ensiarvio – tarkimmat vastaavuudet</h3>
+                <span id="top3-thr-tag" class="text-[11px] font-semibold text-slate-500">Kynnys: 25 %</span>
               </div>
               <div id="top3-list" class="space-y-2.5"></div>
-              <p class="text-[11px] text-slate-400 pt-1">
-                Osuudet kuvaavat PyTorch MLP (α=0.5) -neuroverkon erotusdiagnostista jakaumaa opetusdatan 49 sairauden joukossa.
+              <p id="top3-foot" class="text-[11px] text-slate-400 pt-1">
+                Osuudet kuvaavat oirekuvan alustavaa sopivuutta arvioitaviin tiloihin ja auttavat ohjaamaan oikealle erikoisalalle.
               </p>
             </div>
 
-            <!-- 4. LÄHETÄ TILANNEKUVAAN & NOLLAA -->
+            <!-- 4. SAVE TO REGIONAL OVERVIEW & RESET -->
             <div class="space-y-2">
-              <button type="button" id="submit-sqlite-btn" onclick="submitToSociety()" class="w-full py-3.5 px-4 rounded-2xl bg-[#0B5D3B] hover:bg-[#08472D] text-white font-bold text-sm shadow-sm transition flex items-center justify-center gap-2">
-                <span>Lähetä anonymisoitu tulos alueelliseen tilannekuvaan (SQLite)</span>
+              <button type="button" id="submit-society-btn" onclick="submitToSociety()" class="w-full py-3.5 px-4 rounded-2xl bg-[#0B5D3B] hover:bg-[#08472D] text-white font-bold text-sm shadow-sm transition flex items-center justify-center gap-2">
+                <span id="btn-submit-society">Lähetä anonymisoitu arvio alueelliseen tilannekuvaan</span>
               </button>
               <div id="saved-toast" class="hidden rounded-xl bg-emerald-50 border border-emerald-300 p-3 text-xs text-emerald-900 flex items-center justify-between">
-                <span>✓ Tallennettu kuntataulukkoon!</span>
-                <button onclick="switchTab('society')" class="font-bold underline text-emerald-800">Avaa Tilannekuva →</button>
+                <span id="saved-toast-msg">✓ Tallennettu kuntataulukkoon!</span>
+                <button onclick="switchTab('society')" id="saved-toast-link" class="font-bold underline text-emerald-800">Avaa Tilannekuva →</button>
               </div>
-              <button type="button" onclick="resetForm()" class="w-full py-2.5 px-4 rounded-xl bg-slate-200/80 hover:bg-slate-300/80 text-slate-700 font-semibold text-xs transition">
+              <button type="button" onclick="resetForm()" id="btn-reset" class="w-full py-2.5 px-4 rounded-xl bg-slate-200/80 hover:bg-slate-300/80 text-slate-700 font-semibold text-xs transition">
                 ↺ Tyhjennä kysely ja aloita alusta
               </button>
             </div>
@@ -378,44 +377,44 @@
     </section>
 
     <!-- ================================================================= -->
-    <!-- TAB 2: YHTEISKUNNAN TILANNEKUVA (KUNTATAULUKKO & 24H KASVU)       -->
+    <!-- TAB 2: YHTEISKUNNAN TILANNEKUVA (KUNTATAULUKKO & 24H MUUTOS)      -->
     <!-- ================================================================= -->
     <section id="view-society" class="hidden space-y-4">
 
-      <!-- Ylärivin 3 KPI-korttia -->
+      <!-- KPI Cards -->
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-2xs">
-          <div class="text-xs text-slate-500 font-medium">Lähetetyt oirearviot (viim. 24h)</div>
+          <div id="kpi1-label" class="text-xs text-slate-500 font-medium">Lähetetyt ensiarviot (viim. 24h)</div>
           <div class="flex items-baseline gap-2 mt-1">
             <span id="kpi-total-24h" class="text-2xl font-extrabold text-slate-900">0</span>
             <span id="kpi-delta-24h" class="text-xs font-semibold text-emerald-700"></span>
           </div>
         </div>
         <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-2xs">
-          <div class="text-xs text-slate-500 font-medium">Vastaanotolle suositellut (viim. 24h)</div>
+          <div id="kpi2-label" class="text-xs text-slate-500 font-medium">Vastaanotolle suositellut (viim. 24h)</div>
           <div class="flex items-baseline gap-2 mt-1">
             <span id="kpi-seek-care" class="text-2xl font-extrabold text-[#0B3FB3]">0 %</span>
-            <span id="kpi-seek-sub" class="text-xs text-slate-500">ylitti vastaavuuskynnyksen</span>
+            <span id="kpi2-sub" class="text-xs text-slate-500">vastaanottoarvio suositeltu</span>
           </div>
         </div>
         <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-2xs">
-          <div class="text-xs text-slate-500 font-medium">Nopeimmin kasvava oire (24h)</div>
+          <div id="kpi3-label" class="text-xs text-slate-500 font-medium">Nopeimmin kasvava oire (24h)</div>
           <div id="kpi-fastest-sym" class="text-sm font-extrabold text-[#854D0E] mt-1.5 truncate">-</div>
         </div>
       </div>
 
-      <!-- Suodatus ja kuntataulukko -->
+      <!-- Municipal Table -->
       <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-2xs space-y-4">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div>
-            <h2 class="text-base font-bold text-slate-900">Kuntakohtaiset pre-diagnoosit ja oireiden 24h muutos</h2>
-            <p class="text-xs text-slate-500">
-              Perustuu suoraan PyTorch MLP -neuroverkon tuottamiin tallenteisiin (viimeiset 24h verrattuna edeltävään 24–48h jaksoon). Klikkaa kuntaa avataksesi tarkemman erittelyn.
+          <div class="max-w-2xl">
+            <h2 id="soc-title" class="text-base font-bold text-slate-900">Kuntakohtaiset hoidon automaattiset ensiarviot ja oireiden 24h muutos</h2>
+            <p id="soc-desc" class="text-xs text-slate-500 leading-relaxed mt-0.5">
+              Kooste asukkaiden lähettämistä anonymisoiduista ensiarvioista (viimeiset 24h verrattuna edeltävään vuorokauteen). Klikkaa kuntaa avataksesi tarkemman erittelyn.
             </p>
           </div>
           <div class="flex items-center gap-2">
             <input id="muni-search" type="text" oninput="renderSocietyTable()" placeholder="Hae kuntaa, oiretta tai alaa..." class="rounded-xl bg-[#F4F6FA] border border-slate-200 px-3.5 py-2 text-xs font-medium text-slate-900 focus:outline-none focus:border-[#0B3FB3] w-60" />
-            <button onclick="refreshStats()" class="px-3 py-2 rounded-xl bg-[#EEF3FF] text-[#0B3FB3] text-xs font-bold hover:bg-[#DCE5FF] transition">
+            <button onclick="refreshStats()" id="btn-refresh" class="px-3 py-2 rounded-xl bg-[#EEF3FF] text-[#0B3FB3] text-xs font-bold hover:bg-[#DCE5FF] transition">
               Päivitä
             </button>
           </div>
@@ -425,11 +424,11 @@
           <table class="w-full text-left border-collapse">
             <thead>
               <tr class="border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                <th class="py-3 pr-3">Kunta (Hyvinvointialue)</th>
-                <th class="py-3 px-3">Arviot (24h)</th>
-                <th class="py-3 px-3">Esiintyvät pre-diagnoosit (24h)</th>
-                <th class="py-3 px-3">Suositeltu erikoisala</th>
-                <th class="py-3 pl-3 text-right">Kasvavat oireet (viim. 24h vs. edell. vrk)</th>
+                <th id="th-muni" class="py-3 pr-3">Kunta (Hyvinvointialue)</th>
+                <th id="th-count" class="py-3 px-3">Arviot (24h)</th>
+                <th id="th-evals" class="py-3 px-3">Hoidon automaattiset ensiarviot (24h)</th>
+                <th id="th-spec" class="py-3 px-3">Suositeltu erikoisala</th>
+                <th id="th-sym" class="py-3 pl-3 text-right">Kasvavat oireet (viim. 24h vs. edell. vrk)</th>
               </tr>
             </thead>
             <tbody id="society-tbody" class="divide-y divide-slate-200 text-xs"></tbody>
@@ -437,18 +436,9 @@
         </div>
       </div>
 
-      <!-- Mallin validointi- ja yhdenvertaisuusyhteenveto -->
-      <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-2xs flex flex-wrap items-center justify-between gap-3 text-xs text-slate-600">
-        <div>
-          <span class="font-bold text-slate-800">Aktiivinen neuroverkko:</span>
-          <span>PyTorch EmbeddingBag MLP (982 → 512 → 256 → 49, α = 0.5 pehmeä differentiaalitavoite, 1,03 milj. opetuspotilasta)</span>
-        </div>
-        <div class="flex flex-wrap gap-2 font-mono text-[11px]">
-          <span class="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-800">Test Top-1: 99.75 %</span>
-          <span class="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-800">Top-3: 99.98 %</span>
-          <span class="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200">Sukupuoliero: 0.05 pp</span>
-          <span class="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200">Ikäryhmäero: ≤ 0.09 pp</span>
-        </div>
+      <!-- Clean Healthcare Disclaimer Footer -->
+      <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-2xs text-xs text-slate-500 leading-relaxed" id="soc-footer">
+        Alueellinen näkymä kokoaa yhteen anonymisoidut hoidon automaattiset ensiarviot ja oireilmoitukset hyvinvointialueiden suunnittelun ja yhdenvertaisen hoitoonpääsyn seurannan tueksi.
       </div>
     </section>
   </main>
@@ -456,16 +446,315 @@
   <!-- BOTTOM MOBILE NAVIGATION BAR -->
   <nav class="sm:hidden fixed bottom-0 inset-x-0 z-30 bg-white border-t border-slate-200 px-3 py-2 grid grid-cols-2 gap-2">
     <button onclick="switchTab('patient')" id="bot-tab-patient" class="py-2 px-3 rounded-xl text-xs font-bold text-center transition">
-      1. Oirekysely • Potilas
+      1. Oirekysely
     </button>
     <button onclick="switchTab('society')" id="bot-tab-society" class="py-2 px-3 rounded-xl text-xs font-bold text-center transition">
-      2. Tilannekuva • Yhteiskunta
+      2. Tilannekuva
     </button>
   </nav>
 
   <script>
+    const I18N = {
+      fi: {
+        docTitle: 'HealthQuality – Hoidon automaattinen ensiarvio',
+        servicePill: 'Hoidon automaattinen ensiarvio',
+        headerTitle: 'Hoidon automaattinen ensiarvio ja erikoisalaohjaus',
+        tabPatient: '1. Oirekysely • Potilas',
+        tabSociety: '2. Tilannekuva • Kuntataulukko',
+        tabPatientBot: '1. Oirekysely',
+        tabSocietyBot: '2. Tilannekuva',
+        bannerEyebrow: 'HOIDON AUTOMAATTINEN ENSIARVIO',
+        bannerDesc: 'Kyseessä on alustava hoidon arvio, joka voi antaa osviittaa hoidon tarpeelle ja sopivalle erikoisalalle ilmoittamiesi oireiden ja taustatietojen perusteella. Palvelu ei korvaa terveydenhuollon ammattilaisen tekemää diagnoosia.',
+        thresholdLabel: 'Vastaavuuskynnys:',
+        thresholdLow: 'Herkempi (10 %)',
+        thresholdHigh: 'Tiukempi (75 %)',
+        presetsWellLabel: 'Esimerkit – vointi hyvä / lievä:',
+        presetsCancerLabel: 'Esimerkit – syöpäepäilyt ja jatkoselvittelyt:',
+        presets: {
+          well_none: 'Vointi hyvä (Oireeton)',
+          well_mild: 'Lievä rasitus & hikoilu',
+          well_allergy: 'Kausiluonteinen allergia',
+          well_cold: 'Tavallinen flunssa',
+          cancer_lung_smoker: 'Keuhko-oire & veriyskä (70–79 v)',
+          cancer_lung_exsmoker: 'Pitkittynyt yskä & kylkikipu (60–69 v)',
+          cancer_lung_nonsmoker: 'Tupakoimattoman yskä & sukurasite',
+          cancer_panc_epigastric: 'Ylävatsakipu & painonlasku (60–69 v)',
+          cancer_panc_jaundice: 'Keltaisuus & laihtuminen (70–79 v)',
+          cancer_anemia: 'Selittämätön anemia & laihtuminen',
+          asthma: 'Astmaoireisto',
+        },
+        card1Title: '1. Perustiedot',
+        card1Sub: 'Asuinkunta, ikäryhmä, sukupuoli, matkustustiedot ja oireiden kesto',
+        lblMunicipality: 'Asuinkunta (Hyvinvointialue)',
+        lblTravel: 'Matkustus ulkomailla (viim. 4 vko)',
+        lblAge: 'Ikäryhmä (vuotta)',
+        lblSex: 'Biologinen sukupuoli',
+        sexF: '♀ Nainen',
+        sexM: '♂ Mies',
+        sexU: 'Ei määritelty',
+        lblDuration: 'Oireiden kokonaiskesto',
+        durLt1w: '< 1 viikko',
+        dur1_3w: '1–3 viikkoa',
+        durGt3w: '> 3 viikkoa',
+        card2Title: '2. Esitiedot ja taustatekijät',
+        card2Sub: 'Elintavat, todetut perussairaudet ja lähisuvun sairaudet',
+        selectedAnt: (n) => `${n} valittu`,
+        card3Title: '3. Nykyiset oireet',
+        card3Sub: 'Valitse kaikki tämänhetkiset oireesi hoidon automaattista ensiarviota varten',
+        selectedSym: (n) => `${n} oiretta`,
+        refiningTag: 'Tarkentava',
+        painTitle: 'Kivun tarkennus',
+        painVas: 'Voimakkuus (1–10):',
+        painOnset: 'Alkamisnopeus (1=hidas, 10=äkillinen):',
+        painLoc: 'Pääasiallinen sijainti',
+        painChar: 'Kivun luonne',
+        painRad: 'Kivun säteily',
+        swellingTitle: 'Turvotuksen sijainti',
+        rashTitle: 'Ihomuutoksen tai ihon värin tarkennus',
+        rashColor: 'Ihomuutoksen tai ihon väri',
+        rashItch: 'Kutinan voimakkuus (0–10):',
+        rashSwollen: 'Ihoalue on koholla tai turvonnut',
+        btnRun: 'Muodosta hoidon automaattinen ensiarvio',
+        btnRunSub: 'Kyseessä on alustava hoidon arvio, joka antaa osviittaa hoidon tarpeesta ja ohjaa tarvittaessa oikealle erikoisalalle.',
+        placeholderTitle: 'Valmis hoidon automaattiseen ensiarvioon',
+        placeholderDesc: 'Valitse vasemmalta perustiedot, mahdolliset esitiedot ja nykyiset oireet.',
+        specHeader: 'SUOSITELTU TUTKIMUSLINJA / ERIKOISALA',
+        alsoNote: 'Huomioitava myös:',
+        top3Title: 'Hoidon automaattinen ensiarvio – tarkimmat vastaavuudet',
+        top3Thr: (p) => `Kynnys: ${p} %`,
+        top3Foot: 'Osuudet kuvaavat oirekuvan alustavaa sopivuutta arvioitaviin tiloihin ja auttavat ohjaamaan oikealle erikoisalalle.',
+        matchLabel: 'Vastaavuus',
+        aboveThr: 'Ylittää kynnyksen',
+        belowThr: 'Alle kynnyksen',
+        btnSubmitSoc: 'Lähetä anonymisoitu arvio alueelliseen tilannekuvaan',
+        savedMsg: '✓ Tallennettu kuntataulukkoon!',
+        savedLink: 'Avaa Tilannekuva →',
+        btnReset: '↺ Tyhjennä kysely ja aloita alusta',
+        kpi1: 'Lähetetyt ensiarviot (viim. 24h)',
+        kpiDelta: (s, d) => `${s}${d} vrt. edell. 24h`,
+        unitPcs: 'kpl',
+        unitDay: 'vrk',
+        newBadge: (n) => `+${n} uusi`,
+        kpi2: 'Vastaanotolle suositellut (viim. 24h)',
+        kpi2Sub: 'vastaanottoarvio suositeltu',
+        kpi3: 'Nopeimmin kasvava oire (24h)',
+        socTitle: 'Kuntakohtaiset hoidon automaattiset ensiarviot ja oireiden 24h muutos',
+        socDesc: 'Yhteenveto asukkaiden lähettämistä anonymisoiduista arvioista. Kysely tuottaa yksilölle alustavan hoidon arvion, joka antaa osviittaa hoidon tarpeelle, ja näkymä seuraa oireiden muutosta kunnittain viimeisen 24 tunnin ajalta. Klikkaa kuntaa avataksesi tarkemman erittelyn.',
+        searchPlaceholder: 'Hae kuntaa, oiretta tai alaa...',
+        btnRefresh: 'Päivitä',
+        thMuni: 'Kunta (Hyvinvointialue)',
+        thCount: 'Arviot (24h)',
+        thEvals: 'Hoidon automaattiset ensiarviot (24h)',
+        thSpec: 'Suositeltu erikoisala',
+        thSym: 'Kasvavat oireet (viim. 24h vs. edell. vrk)',
+        emptyRows: 'Ei hakua vastaavia kuntarivejä.',
+        expEvals: 'Kaikki kunnan hoidon automaattiset ensiarviot (viim. 24h):',
+        expSyms: 'Kaikki ilmoitetut oireet ja 24h muutos:',
+        expNowVsPrev: (now, prev, sign, d) => `nyt ${now} kpl vs. edell. vrk ${prev} kpl (${sign}${d} kpl)`,
+        socFooter: 'Alueellinen näkymä kokoaa yhteen anonymisoidut hoidon automaattiset ensiarviot ja oireilmoitukset hyvinvointialueiden suunnittelun ja yhdenvertaisen hoitoonpääsyn seurannan tueksi.',
+      },
+      sv: {
+        docTitle: 'HealthQuality – Automatiserad första vårdbedömning',
+        servicePill: 'Automatiserad första vårdbedömning',
+        headerTitle: 'Automatiserad första vårdbedömning och specialitetshänvisning',
+        tabPatient: '1. Symtomenkät • Patient',
+        tabSociety: '2. Lägesbild • Kommuntabell',
+        tabPatientBot: '1. Symtomenkät',
+        tabSocietyBot: '2. Lägesbild',
+        bannerEyebrow: 'AUTOMATISERAD FÖRSTA VÅRDBEDÖMNING',
+        bannerDesc: 'Detta är en inledande vårdbedömning som kan ge vägledning om vårdbehovet och lämplig medicinsk specialitet utifrån dina angivna symtom och bakgrundsuppgifter. Tjänsten ersätter inte en läkares diagnos.',
+        thresholdLabel: 'Tröskelvärde för överensstämmelse:',
+        thresholdLow: 'Känsligare (10 %)',
+        thresholdHigh: 'Striktare (75 %)',
+        presetsWellLabel: 'Exempel – god hälsa / lindriga symtom:',
+        presetsCancerLabel: 'Exempel – cancermisstanke och fortsatt utredning:',
+        presets: {
+          well_none: 'God hälsa (Symtomfri)',
+          well_mild: 'Lätt ansträngning & svettning',
+          well_allergy: 'Säsongsallergi',
+          well_cold: 'Vanlig förkylning',
+          cancer_lung_smoker: 'Lungsymtom & blodhosta (70–79 år)',
+          cancer_lung_exsmoker: 'Långvarig hosta & bröstkorgssmärta (60–69 år)',
+          cancer_lung_nonsmoker: 'Icke-rökare med hosta & ärftlighet',
+          cancer_panc_epigastric: 'Smärta i övre magen & viktminskning (60–69 år)',
+          cancer_panc_jaundice: 'Gulsot & aptitlöshet (70–79 år)',
+          cancer_anemia: 'Oförklarad anemi & viktminskning',
+          asthma: 'Astmasymtom',
+        },
+        card1Title: '1. Basuppgifter',
+        card1Sub: 'Hemkommun, åldersgrupp, kön, reseuppgifter och symtomens varaktighet',
+        lblMunicipality: 'Hemkommun (Välfärdsområde)',
+        lblTravel: 'Utlandsresor (senaste 4 veckorna)',
+        lblAge: 'Åldersgrupp (år)',
+        lblSex: 'Biologiskt kön',
+        sexF: '♀ Kvinna',
+        sexM: '♂ Man',
+        sexU: 'Ej angivet',
+        lblDuration: 'Symtomens totala varaktighet',
+        durLt1w: '< 1 vecka',
+        dur1_3w: '1–3 veckor',
+        durGt3w: '> 3 veckor',
+        card2Title: '2. Förhandsuppgifter och bakgrund',
+        card2Sub: 'Levnadsvanor, konstaterade grundsjukdomar och ärftlighet i släkten',
+        selectedAnt: (n) => `${n} valda`,
+        card3Title: '3. Nuvarande symtom',
+        card3Sub: 'Välj alla dina nuvarande symtom för den automatiserade första vårdbedömningen',
+        selectedSym: (n) => `${n} symtom`,
+        refiningTag: 'Fördjupande',
+        painTitle: 'Precisering av smärta',
+        painVas: 'Intensitet (1–10):',
+        painOnset: 'Debuthastighet (1=långsam, 10=plötslig):',
+        painLoc: 'Huvudsaklig lokalisation',
+        painChar: 'Smärtans karaktär',
+        painRad: 'Utstrålning',
+        swellingTitle: 'Svullnadens lokalisation',
+        rashTitle: 'Precisering av hudförändring eller hudfärg',
+        rashColor: 'Hudförändringens eller hudens färg',
+        rashItch: 'Klådans intensitet (0–10):',
+        rashSwollen: 'Hudområdet är upphöjt eller svullet',
+        btnRun: 'Skapa automatiserad första vårdbedömning',
+        btnRunSub: 'Detta är en inledande vårdbedömning som ger vägledning om vårdbehovet och hänvisar vid behov till rätt specialitet.',
+        placeholderTitle: 'Redo för automatiserad första vårdbedömning',
+        placeholderDesc: 'Välj basuppgifter, eventuella bakgrundsfaktorer och nuvarande symtom till vänster.',
+        specHeader: 'REKOMMENDERAD UTREDNINGSLINJE / SPECIALITET',
+        alsoNote: 'Beakta även:',
+        top3Title: 'Automatiserad första vårdbedömning – närmaste överensstämmelser',
+        top3Thr: (p) => `Tröskel: ${p} %`,
+        top3Foot: 'Andelarna beskriver hur väl symtombilden preliminärt stämmer med de bedömda tillstånden för att vägleda till rätt specialitet.',
+        matchLabel: 'Överensstämmelse',
+        aboveThr: 'Över tröskelvärdet',
+        belowThr: 'Under tröskelvärdet',
+        btnSubmitSoc: 'Skicka anonymiserad bedömning till regional lägesbild',
+        savedMsg: '✓ Sparad i kommuntabellen!',
+        savedLink: 'Öppna Lägesbild →',
+        btnReset: '↺ Rensa enkäten och börja om',
+        kpi1: 'Inskickade vårdbedömningar (senaste 24h)',
+        kpiDelta: (s, d) => `${s}${d} jfr föreg. 24h`,
+        unitPcs: 'st',
+        unitDay: 'dygn',
+        newBadge: (n) => `+${n} ny`,
+        kpi2: 'Rekommenderade mottagningsbesök (24h)',
+        kpi2Sub: 'mottagningsbedömning rekommenderad',
+        kpi3: 'Snabbast ökande symtom (24h)',
+        socTitle: 'Kommunvisa automatiserade första vårdbedömningar och 24h symtomförändring',
+        socDesc: 'Sammanställning av invånarnas anonymiserade bedömningar. Enkäten ger individen en inledande vårdbedömning som ger vägledning om vårdbehovet, och vyn följer symtomutvecklingen per kommun det senaste dygnet. Klicka på en kommun för detaljer.',
+        searchPlaceholder: 'Sök kommun, symtom eller specialitet...',
+        btnRefresh: 'Uppdatera',
+        thMuni: 'Kommun (Välfärdsområde)',
+        thCount: 'Bedömningar (24h)',
+        thEvals: 'Automatiserade första vårdbedömningar (24h)',
+        thSpec: 'Rekommenderad specialitet',
+        thSym: 'Ökande symtom (senaste 24h vs. föreg. dygn)',
+        emptyRows: 'Inga kommunrader matchar sökningen.',
+        expEvals: 'Alla automatiserade första vårdbedömningar i kommunen (24h):',
+        expSyms: 'Alla rapporterade symtom och 24h förändring:',
+        expNowVsPrev: (now, prev, sign, d) => `nu ${now} st vs. föreg. dygn ${prev} st (${sign}${d} st)`,
+        socFooter: 'Den regionala lägesbilden sammanställer anonymiserade automatiserade första vårdbedömningar och symtomrapporter till stöd för jämlik tillgång till vård i välfärdsområdena.',
+      },
+      en: {
+        docTitle: 'HealthQuality – Preliminary automated evaluation',
+        servicePill: 'Preliminary automated evaluation',
+        headerTitle: 'Preliminary automated evaluation & specialty guidance',
+        tabPatient: '1. Symptom Survey • Patient',
+        tabSociety: '2. Regional Overview • Municipalities',
+        tabPatientBot: '1. Symptom Survey',
+        tabSocietyBot: '2. Overview',
+        bannerEyebrow: 'PRELIMINARY AUTOMATED EVALUATION',
+        bannerDesc: 'This is an initial care assessment designed to provide guidance on your potential need for care and the appropriate medical specialty based on your reported symptoms and background. It does not replace a professional medical diagnosis.',
+        thresholdLabel: 'Match threshold:',
+        thresholdLow: 'More sensitive (10%)',
+        thresholdHigh: 'Stricter (75%)',
+        presetsWellLabel: 'Examples – feeling well / mild:',
+        presetsCancerLabel: 'Examples – cancer-suspect & diagnostic workup:',
+        presets: {
+          well_none: 'Feeling well (No symptoms)',
+          well_mild: 'Mild exertion & sweating',
+          well_allergy: 'Seasonal allergy',
+          well_cold: 'Common cold',
+          cancer_lung_smoker: 'Lung symptoms & blood in sputum (70–79 yrs)',
+          cancer_lung_exsmoker: 'Persistent cough & chest wall ache (60–69 yrs)',
+          cancer_lung_nonsmoker: 'Non-smoker persistent cough & family history',
+          cancer_panc_epigastric: 'Upper abdominal pain & weight loss (60–69 yrs)',
+          cancer_panc_jaundice: 'Jaundice & loss of appetite (70–79 yrs)',
+          cancer_anemia: 'Unexplained anemia & weight loss',
+          asthma: 'Asthma symptoms',
+        },
+        card1Title: '1. Basic Profile',
+        card1Sub: 'Municipality, age group, sex, recent travel, and total symptom duration',
+        lblMunicipality: 'Municipality (Wellbeing County)',
+        lblTravel: 'International travel (past 4 weeks)',
+        lblAge: 'Age group (years)',
+        lblSex: 'Biological sex',
+        sexF: '♀ Female',
+        sexM: '♂ Male',
+        sexU: 'Not specified',
+        lblDuration: 'Total duration of symptoms',
+        durLt1w: '< 1 week',
+        dur1_3w: '1–3 weeks',
+        durGt3w: '> 3 weeks',
+        card2Title: '2. Medical History & Background',
+        card2Sub: 'Lifestyle factors, diagnosed conditions, and family medical history',
+        selectedAnt: (n) => `${n} selected`,
+        card3Title: '3. Current Symptoms',
+        card3Sub: 'Select all current symptoms for your preliminary automated evaluation',
+        selectedSym: (n) => `${n} symptoms`,
+        refiningTag: 'Follow-up detail',
+        painTitle: 'Pain details',
+        painVas: 'Intensity (1–10):',
+        painOnset: 'Speed of onset (1=gradual, 10=sudden):',
+        painLoc: 'Primary location',
+        painChar: 'Pain character',
+        painRad: 'Radiation',
+        swellingTitle: 'Swelling location',
+        rashTitle: 'Skin lesion or skin color details',
+        rashColor: 'Skin or lesion color',
+        rashItch: 'Itching intensity (0–10):',
+        rashSwollen: 'Skin area is raised or swollen',
+        btnRun: 'Generate preliminary automated evaluation',
+        btnRunSub: 'Provides an initial care evaluation indicating potential need for medical attention and appropriate specialty routing.',
+        placeholderTitle: 'Ready for preliminary automated evaluation',
+        placeholderDesc: 'Select your basic profile, relevant background factors, and current symptoms on the left.',
+        specHeader: 'RECOMMENDED SPECIALTY / CARE PATHWAY',
+        alsoNote: 'Also consider:',
+        top3Title: 'Preliminary automated evaluation – closest matches',
+        top3Thr: (p) => `Threshold: ${p}%`,
+        top3Foot: 'Percentages reflect how closely your symptom profile aligns with evaluated clinical conditions to guide specialty routing.',
+        matchLabel: 'Match',
+        aboveThr: 'Above threshold',
+        belowThr: 'Below threshold',
+        btnSubmitSoc: 'Submit anonymized evaluation to regional overview',
+        savedMsg: '✓ Saved to municipal overview!',
+        savedLink: 'Open Regional Overview →',
+        btnReset: '↺ Clear survey and start over',
+        kpi1: 'Submitted evaluations (past 24h)',
+        kpiDelta: (s, d) => `${s}${d} vs. prior 24h`,
+        unitPcs: '',
+        unitDay: '24h',
+        newBadge: (n) => `+${n} new`,
+        kpi2: 'Clinic visit advised (past 24h)',
+        kpi2Sub: 'clinical evaluation recommended',
+        kpi3: 'Fastest growing symptom (24h)',
+        socTitle: 'Municipal preliminary automated evaluations & 24h symptom trends',
+        socDesc: 'Summary of anonymized resident submissions. Each survey provides an individual preliminary care evaluation indicating potential need for care, while this view tracks 24-hour symptom trends by municipality. Click a municipality for details.',
+        searchPlaceholder: 'Search municipality, symptom, or specialty...',
+        btnRefresh: 'Refresh',
+        thMuni: 'Municipality (Wellbeing County)',
+        thCount: 'Evaluations (24h)',
+        thEvals: 'Preliminary automated evaluations (24h)',
+        thSpec: 'Recommended specialty',
+        thSym: 'Growing symptoms (past 24h vs. prior 24h)',
+        emptyRows: 'No municipalities match your search.',
+        expEvals: 'All preliminary automated evaluations in municipality (past 24h):',
+        expSyms: 'All reported symptoms and 24h change:',
+        expNowVsPrev: (now, prev, sign, d) => `now ${now} vs. prior 24h ${prev} (${sign}${d})`,
+        socFooter: 'The regional overview aggregates anonymized preliminary automated evaluations and symptom reports to support equitable access to care across wellbeing counties.',
+      },
+    };
+
     let catalog = null;
+    let analysisTimer = null;
     let state = {
+      lang: 'fi',
       tab: 'patient',
       municipality: 'Helsinki',
       age_band: '30-39',
@@ -481,57 +770,168 @@
       expandedMuni: null,
     };
 
+    function t() {
+      return I18N[state.lang] || I18N.fi;
+    }
+
     async function initApp() {
       const res = await fetch('/api/catalog');
       catalog = await res.json();
-
-      const badge = document.getElementById('engine-badge');
-      const statsPill = document.getElementById('model-stats-pill');
-      if (catalog.model_info && catalog.model_info.active) {
-        const mi = catalog.model_info;
-        badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span> PyTorch MLP (${mi.run_dir.split('_').slice(1).join('_') || mi.run_dir})`;
-        statsPill.textContent = `${mi.n_tokens} tokenia • Val Top-1: ${(mi.val_top1 * 100).toFixed(2)} %`;
-      }
-
-      // Render municipalities
-      const muniSel = document.getElementById('municipality-select');
-      muniSel.innerHTML = catalog.municipalities.map(m =>
-        `<option value="${m.name}">${m.name} (${m.county})</option>`
-      ).join('');
-      muniSel.onchange = (e) => { state.municipality = e.target.value; };
-
-      // Render travel (E_204)
-      const travSel = document.getElementById('travel-select');
-      travSel.innerHTML = catalog.travel_regions.map(t =>
-        `<option value="${t.id}">${t.label}</option>`
-      ).join('');
-      travSel.onchange = (e) => { state.travel = e.target.value; };
-
-      // Render conditional dropdowns
-      document.getElementById('pain-location').innerHTML = catalog.pain_locations.map(x =>
-        `<option value="${x.id}">${x.label}</option>`
-      ).join('');
-      document.getElementById('pain-character').innerHTML = catalog.pain_characters.map(x =>
-        `<option value="${x.id}">${x.label}</option>`
-      ).join('');
-      document.getElementById('pain-radiation').innerHTML = catalog.pain_radiations.map(x =>
-        `<option value="${x.id}">${x.label}</option>`
-      ).join('');
-      document.getElementById('swelling-location').innerHTML = catalog.swelling_locations.map(x =>
-        `<option value="${x.id}">${x.label}</option>`
-      ).join('');
-      document.getElementById('rash-color').innerHTML = catalog.rash_colors.map(x =>
-        `<option value="${x.id}">${x.label}</option>`
-      ).join('');
-
+      applyStaticTranslations();
+      renderSelectOptions();
       renderControls();
       switchTab('patient');
-      await runAnalysis();
+      await runAnalysis(false);
       await refreshStats();
     }
 
+    function setLanguage(lang) {
+      state.lang = lang;
+      document.documentElement.lang = lang;
+      applyStaticTranslations();
+      renderSelectOptions();
+      renderControls();
+      runAnalysis(false);
+      refreshStats();
+    }
+
+    function applyStaticTranslations() {
+      const tr = t();
+      document.title = tr.docTitle;
+      document.getElementById('service-pill').textContent = tr.servicePill;
+      document.getElementById('header-title').textContent = tr.headerTitle;
+      document.getElementById('top-tab-patient').textContent = tr.tabPatient;
+      document.getElementById('top-tab-society-label').textContent = tr.tabSociety;
+      document.getElementById('bot-tab-patient').textContent = tr.tabPatientBot;
+      document.getElementById('bot-tab-society').textContent = tr.tabSocietyBot;
+
+      ['fi', 'sv', 'en'].forEach(lg => {
+        const btn = document.getElementById(`lang-btn-${lg}`);
+        btn.className = lg === state.lang
+          ? 'px-2.5 py-1 rounded-lg text-xs font-extrabold bg-[#0B3FB3] text-white shadow-2xs transition'
+          : 'px-2.5 py-1 rounded-lg text-xs font-bold text-slate-600 hover:text-slate-900 transition';
+      });
+
+      document.getElementById('banner-eyebrow').textContent = tr.bannerEyebrow;
+      document.getElementById('banner-desc').textContent = tr.bannerDesc;
+      document.getElementById('threshold-label').textContent = tr.thresholdLabel;
+      document.getElementById('threshold-low-hint').textContent = tr.thresholdLow;
+      document.getElementById('threshold-high-hint').textContent = tr.thresholdHigh;
+
+      document.getElementById('presets-well-label').textContent = tr.presetsWellLabel;
+      document.getElementById('presets-cancer-label').textContent = tr.presetsCancerLabel;
+      Object.entries(tr.presets).forEach(([key, label]) => {
+        const el = document.getElementById(`preset-${key}`);
+        if (el) el.textContent = label;
+      });
+
+      document.getElementById('card1-title').textContent = tr.card1Title;
+      document.getElementById('card1-sub').textContent = tr.card1Sub;
+      document.getElementById('lbl-municipality').textContent = tr.lblMunicipality;
+      document.getElementById('lbl-travel').textContent = tr.lblTravel;
+      document.getElementById('lbl-age').textContent = tr.lblAge;
+      document.getElementById('lbl-sex').textContent = tr.lblSex;
+      document.getElementById('sex-btn-f').textContent = tr.sexF;
+      document.getElementById('sex-btn-m').textContent = tr.sexM;
+      document.getElementById('sex-btn-u').textContent = tr.sexU;
+      document.getElementById('lbl-duration').textContent = tr.lblDuration;
+      document.getElementById('dur-btn-lt1w').textContent = tr.durLt1w;
+      document.getElementById('dur-btn-1_3w').textContent = tr.dur1_3w;
+      document.getElementById('dur-btn-gt3w').textContent = tr.durGt3w;
+
+      document.getElementById('card2-title').textContent = tr.card2Title;
+      document.getElementById('card2-sub').textContent = tr.card2Sub;
+      document.getElementById('card3-title').textContent = tr.card3Title;
+      document.getElementById('card3-sub').textContent = tr.card3Sub;
+
+      document.getElementById('pain-panel-title').textContent = tr.painTitle;
+      document.getElementById('pain-panel-tag').textContent = tr.refiningTag;
+      document.getElementById('pain-vas-title').textContent = tr.painVas;
+      document.getElementById('pain-onset-title').textContent = tr.painOnset;
+      document.getElementById('pain-loc-lbl').textContent = tr.painLoc;
+      document.getElementById('pain-char-lbl').textContent = tr.painChar;
+      document.getElementById('pain-rad-lbl').textContent = tr.painRad;
+
+      document.getElementById('swelling-panel-title').textContent = tr.swellingTitle;
+      document.getElementById('swelling-panel-tag').textContent = tr.refiningTag;
+
+      document.getElementById('rash-panel-title').textContent = tr.rashTitle;
+      document.getElementById('rash-panel-tag').textContent = tr.refiningTag;
+      document.getElementById('rash-color-lbl').textContent = tr.rashColor;
+      document.getElementById('rash-itch-title').textContent = tr.rashItch;
+      document.getElementById('rash-swollen-lbl').textContent = tr.rashSwollen;
+
+      document.getElementById('btn-run-label').textContent = tr.btnRun;
+      document.getElementById('btn-run-sub').textContent = tr.btnRunSub;
+      document.getElementById('placeholder-title').textContent = tr.placeholderTitle;
+      document.getElementById('placeholder-desc').textContent = tr.placeholderDesc;
+      document.getElementById('specialty-header').textContent = tr.specHeader;
+      document.getElementById('top3-title').textContent = tr.top3Title;
+      document.getElementById('top3-thr-tag').textContent = tr.top3Thr(Math.round(state.threshold * 100));
+      document.getElementById('top3-foot').textContent = tr.top3Foot;
+      document.getElementById('btn-submit-society').textContent = tr.btnSubmitSoc;
+      document.getElementById('saved-toast-msg').textContent = tr.savedMsg;
+      document.getElementById('saved-toast-link').textContent = tr.savedLink;
+      document.getElementById('btn-reset').textContent = tr.btnReset;
+
+      document.getElementById('kpi1-label').textContent = tr.kpi1;
+      document.getElementById('kpi2-label').textContent = tr.kpi2;
+      document.getElementById('kpi2-sub').textContent = tr.kpi2Sub;
+      document.getElementById('kpi3-label').textContent = tr.kpi3;
+      document.getElementById('soc-title').textContent = tr.socTitle;
+      document.getElementById('soc-desc').textContent = tr.socDesc;
+      document.getElementById('muni-search').placeholder = tr.searchPlaceholder;
+      document.getElementById('btn-refresh').textContent = tr.btnRefresh;
+      document.getElementById('th-muni').textContent = tr.thMuni;
+      document.getElementById('th-count').textContent = tr.thCount;
+      document.getElementById('th-evals').textContent = tr.thEvals;
+      document.getElementById('th-spec').textContent = tr.thSpec;
+      document.getElementById('th-sym').textContent = tr.thSym;
+      document.getElementById('soc-footer').textContent = tr.socFooter;
+    }
+
+    function renderSelectOptions() {
+      if (!catalog) return;
+      const lg = state.lang;
+      const labelKey = `label_${lg}`;
+      const countyKey = `county_${lg}`;
+
+      const muniSel = document.getElementById('municipality-select');
+      muniSel.innerHTML = catalog.municipalities.map(m => {
+        const mName = lg === 'sv' ? m.name_sv : m.name;
+        return `<option value="${m.name}">${mName} (${m[countyKey]})</option>`;
+      }).join('');
+      muniSel.value = state.municipality;
+      muniSel.onchange = (e) => { state.municipality = e.target.value; };
+
+      const travSel = document.getElementById('travel-select');
+      travSel.innerHTML = catalog.travel_regions.map(t =>
+        `<option value="${t.id}">${t[labelKey]}</option>`
+      ).join('');
+      travSel.value = state.travel;
+      travSel.onchange = (e) => { state.travel = e.target.value; scheduleAnalysis(); };
+
+      const preserveAndFill = (elId, items) => {
+        const el = document.getElementById(elId);
+        const prev = el.value;
+        el.innerHTML = items.map(x => `<option value="${x.id}">${x[labelKey]}</option>`).join('');
+        if (prev && items.some(x => x.id === prev)) el.value = prev;
+      };
+
+      preserveAndFill('pain-location', catalog.pain_locations);
+      preserveAndFill('pain-character', catalog.pain_characters);
+      preserveAndFill('pain-radiation', catalog.pain_radiations);
+      preserveAndFill('swelling-location', catalog.swelling_locations);
+      preserveAndFill('rash-color', catalog.rash_colors);
+    }
+
     function renderControls() {
-      // Age grid
+      if (!catalog) return;
+      const lg = state.lang;
+      const tr = t();
+      const labelKey = `label_${lg}`;
+      const groupKey = `group_${lg}`;
+
       const ageGrid = document.getElementById('age-grid');
       ageGrid.innerHTML = catalog.age_bands.map(b => {
         const active = state.age_band === b.id;
@@ -542,7 +942,6 @@
         }">${b.label}</button>`;
       }).join('');
 
-      // Sex buttons
       document.querySelectorAll('.sex-btn').forEach(btn => {
         const active = btn.dataset.sex === state.sex;
         btn.className = `sex-btn py-2.5 px-3 rounded-xl text-xs font-bold border transition ${
@@ -552,7 +951,6 @@
         }`;
       });
 
-      // Duration buttons
       document.querySelectorAll('.dur-btn').forEach(btn => {
         const active = btn.dataset.dur === state.duration;
         btn.className = `dur-btn py-2.5 px-3 rounded-xl text-xs font-bold border transition ${
@@ -562,42 +960,39 @@
         }`;
       });
 
-      // Antecedents grouped
       const antGroups = {};
       catalog.antecedents.forEach(a => {
-        (antGroups[a.group] = antGroups[a.group] || []).push(a);
+        (antGroups[a[groupKey]] = antGroups[a[groupKey]] || []).push(a);
       });
       document.getElementById('antecedents-container').innerHTML = Object.entries(antGroups).map(([grp, items]) => `
         <div class="space-y-2">
           <div class="text-[11px] font-bold tracking-wider uppercase text-slate-500">${grp}</div>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            ${items.map(item => renderCheckCard(item.id, item.label_fi, state.antecedents.has(item.id), 'toggleAntecedent')).join('')}
+            ${items.map(item => renderCheckCard(item.id, item[labelKey], state.antecedents.has(item.id), 'toggleAntecedent')).join('')}
           </div>
         </div>
       `).join('');
 
-      // Symptoms grouped (yhtenäinen rauhallinen väritys ilman punaisia varoituslaatikoita)
       const symGroups = {};
       catalog.symptoms.forEach(s => {
-        (symGroups[s.group] = symGroups[s.group] || []).push(s);
+        (symGroups[s[groupKey]] = symGroups[s[groupKey]] || []).push(s);
       });
       document.getElementById('symptoms-container').innerHTML = Object.entries(symGroups).map(([grp, items]) => `
         <div class="space-y-2">
           <div class="text-xs font-bold text-slate-700">${grp}</div>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            ${items.map(item => renderCheckCard(item.id, item.label_fi, state.symptoms.has(item.id), 'toggleSymptom')).join('')}
+            ${items.map(item => renderCheckCard(item.id, item[labelKey], state.symptoms.has(item.id), 'toggleSymptom')).join('')}
           </div>
         </div>
       `).join('');
 
-      // Conditional panels
       const showPain = state.symptoms.has('sym_pain') || state.symptoms.has('sym_chest_pain_rest') || state.symptoms.has('sym_pleuritic');
       document.getElementById('pain-panel').classList.toggle('hidden', !showPain);
       document.getElementById('swelling-panel').classList.toggle('hidden', !state.symptoms.has('sym_swelling'));
       document.getElementById('rash-panel').classList.toggle('hidden', !state.symptoms.has('sym_rash'));
 
-      document.getElementById('selected-ant-pill').textContent = `${state.antecedents.size} valittu`;
-      document.getElementById('selected-count-pill').textContent = `${state.symptoms.size} oiretta`;
+      document.getElementById('selected-ant-pill').textContent = tr.selectedAnt(state.antecedents.size);
+      document.getElementById('selected-count-pill').textContent = tr.selectedSym(state.symptoms.size);
     }
 
     function renderCheckCard(id, label, checked, fnName) {
@@ -615,26 +1010,41 @@
       `;
     }
 
-    function setAge(id) { state.age_band = id; renderControls(); }
-    function setSex(s) { state.sex = s; renderControls(); }
-    function setDuration(d) { state.duration = d; renderControls(); }
-    function onThresholdChange() { state.threshold = parseFloat(document.getElementById('threshold-select').value); runAnalysis(); }
+    function scheduleAnalysis() {
+      if (analysisTimer) clearTimeout(analysisTimer);
+      analysisTimer = setTimeout(() => runAnalysis(false), 60);
+    }
+
+    function setAge(id) { state.age_band = id; renderControls(); scheduleAnalysis(); }
+    function setSex(s) { state.sex = s; renderControls(); scheduleAnalysis(); }
+    function setDuration(d) { state.duration = d; renderControls(); scheduleAnalysis(); }
+
+    function onThresholdInput(val) {
+      const pct = parseInt(val, 10);
+      state.threshold = pct / 100.0;
+      document.getElementById('threshold-value-pill').textContent = state.lang === 'en' ? `${pct}%` : `${pct} %`;
+      document.getElementById('top3-thr-tag').textContent = t().top3Thr(pct);
+      scheduleAnalysis();
+    }
 
     function toggleAntecedent(id) {
       if (state.antecedents.has(id)) state.antecedents.delete(id);
       else state.antecedents.add(id);
       renderControls();
+      scheduleAnalysis();
     }
 
     function toggleSymptom(id) {
       if (state.symptoms.has(id)) state.symptoms.delete(id);
       else state.symptoms.add(id);
       renderControls();
+      scheduleAnalysis();
     }
 
     function buildPayload() {
       const showPain = state.symptoms.has('sym_pain') || state.symptoms.has('sym_chest_pain_rest') || state.symptoms.has('sym_pleuritic');
       return {
+        lang: state.lang,
         municipality: state.municipality,
         age_band: state.age_band,
         sex: state.sex,
@@ -662,7 +1072,7 @@
       };
     }
 
-    async function runAnalysis() {
+    async function runAnalysis(scrollMobile) {
       document.getElementById('saved-toast').classList.add('hidden');
       const res = await fetch('/api/predict', {
         method: 'POST',
@@ -672,35 +1082,50 @@
       const data = await res.json();
       state.lastPrediction = data;
       renderPrediction(data);
+      if (scrollMobile && window.innerWidth < 1024) {
+        document.getElementById('results-column').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
     }
 
     function renderPrediction(d) {
+      const tr = t();
       document.getElementById('result-placeholder').classList.add('hidden');
       document.getElementById('result-cards').classList.remove('hidden');
 
       const uCard = document.getElementById('urgency-card');
       const uBadge = document.getElementById('urgency-badge');
+      const durBox = document.getElementById('duration-box');
       const visitNote = document.getElementById('visit-reassurance');
 
-      // Pehmeä keltainen vastaanottosuosituksille, rauhallinen vihreä/siniharmaa kotiseurannalle
+      // Soft yellow for clinic visit recommendations, soft green for self-care / good wellbeing, calm sky-blue for below-threshold
       if (d.urgency_tier === 'priority_visit' || d.urgency_tier === 'scheduled_visit') {
         uCard.className = 'rounded-2xl border p-5 shadow-2xs space-y-3 border-l-4 bg-[#FEFCE8] border-[#FDE68A] border-l-[#EAB308]';
         uBadge.className = 'px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#FEF08A]/80 text-[#854D0E] border border-[#FDE047]';
-        visitNote.classList.remove('hidden');
-      } else if (d.urgency_tier === 'self_care') {
+      } else if (d.urgency_tier === 'self_care' || d.urgency_tier === 'no_symptoms') {
         uCard.className = 'rounded-2xl border p-5 shadow-2xs space-y-3 border-l-4 bg-[#F0FDF4] border-emerald-200 border-l-emerald-500';
         uBadge.className = 'px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200';
-        visitNote.classList.add('hidden');
       } else {
         uCard.className = 'rounded-2xl border p-5 shadow-2xs space-y-3 border-l-4 bg-white border-slate-200 border-l-sky-500';
         uBadge.className = 'px-2.5 py-1 rounded-full text-[11px] font-bold bg-sky-50 text-sky-800 border border-sky-200';
-        visitNote.classList.add('hidden');
       }
 
       document.getElementById('urgency-title').textContent = d.urgency_title;
       uBadge.textContent = d.urgency_badge;
       document.getElementById('urgency-text').textContent = d.urgency_text;
-      document.getElementById('engine-run-tag').textContent = d.engine_mode.startsWith('mlp:') ? 'PyTorch MLP' : d.engine_mode;
+
+      if (d.duration_note) {
+        durBox.textContent = d.duration_note;
+        durBox.classList.remove('hidden');
+      } else {
+        durBox.classList.add('hidden');
+      }
+
+      if (d.reassurance_note) {
+        visitNote.textContent = d.reassurance_note;
+        visitNote.classList.remove('hidden');
+      } else {
+        visitNote.classList.add('hidden');
+      }
 
       const gBox = document.getElementById('geriatric-box');
       if (d.geriatric_note) {
@@ -710,25 +1135,18 @@
         gBox.classList.add('hidden');
       }
 
-      document.getElementById('specialty-primary').textContent = d.recommended_specialty_fi;
+      document.getElementById('specialty-primary').textContent = d.recommended_specialty;
       const exEl = document.getElementById('specialty-exclusion');
-      if (d.exclusion_specialty_fi) {
-        exEl.textContent = `Huomioitava myös: ${d.exclusion_specialty_fi}`;
+      if (d.exclusion_specialty) {
+        exEl.textContent = `${tr.alsoNote} ${d.exclusion_specialty}`;
         exEl.classList.remove('hidden');
       } else {
         exEl.classList.add('hidden');
       }
-      document.getElementById('specialty-rationale').textContent = d.rationale_fi;
+      document.getElementById('specialty-rationale').textContent = d.rationale;
 
-      const toks = d.encoded_tokens || [];
-      document.getElementById('token-count').textContent = toks.length;
-      document.getElementById('token-pills').innerHTML = toks.map(t =>
-        `<span class="px-2 py-0.5 rounded bg-slate-100 border border-slate-200 font-mono text-[10px] text-slate-700">${t}</span>`
-      ).join('');
-
-      // Top 3 cards
       const top3Card = document.getElementById('top3-card');
-      const submitBtn = document.getElementById('submit-sqlite-btn');
+      const submitBtn = document.getElementById('submit-society-btn');
       if (!d.top3 || !d.top3.length) {
         top3Card.classList.add('hidden');
         submitBtn.classList.add('hidden');
@@ -737,28 +1155,39 @@
       top3Card.classList.remove('hidden');
       submitBtn.classList.remove('hidden');
 
+      const thrPct = Math.round(state.threshold * 100);
+      document.getElementById('top3-thr-tag').textContent = tr.top3Thr(thrPct);
+
       document.getElementById('top3-list').innerHTML = d.top3.map((item, idx) => {
         const pct = Math.round(item.probability * 100);
-        const isFirst = idx === 0;
+        const meets = item.meets_threshold;
+        const pctStr = state.lang === 'en' ? `${pct}%` : `${pct} %`;
+        const statusPill = meets
+          ? `<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#DCE5FF] text-[#0B3FB3]">${tr.aboveThr}</span>`
+          : `<span class="px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-200/80 text-slate-600">${tr.belowThr}</span>`;
         return `
-          <div class="rounded-xl bg-[#F4F6FA] border border-slate-200/80 p-3.5 space-y-2">
+          <div class="rounded-xl bg-[#F4F6FA] border ${meets ? 'border-[#B4C6FF]' : 'border-slate-200/80'} p-3.5 space-y-2">
             <div class="flex items-center justify-between gap-3">
               <div class="flex items-center gap-2.5 min-w-0">
                 <span class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-extrabold shrink-0 ${
-                  isFirst ? 'bg-[#0B3FB3] text-white' : 'bg-slate-200 text-slate-700'
+                  meets ? 'bg-[#0B3FB3] text-white' : 'bg-slate-200 text-slate-700'
                 }">${idx + 1}</span>
                 <div class="min-w-0">
-                  <div class="text-xs sm:text-sm font-bold text-slate-900 leading-snug">${item.name_fi}</div>
-                  <div class="text-[11px] font-mono text-slate-500">ICD-10: ${item.icd10} • ${item.specialty_fi}</div>
+                  <div class="text-xs sm:text-sm font-bold text-slate-900 leading-snug">${item.name}</div>
+                  <div class="text-[11px] text-slate-500 flex items-center gap-1.5 flex-wrap mt-0.5">
+                    <span>ICD-10: ${item.icd10} • ${item.specialty}</span>
+                    ${statusPill}
+                  </div>
                 </div>
               </div>
               <div class="text-right shrink-0">
-                <div class="text-base sm:text-lg font-extrabold ${isFirst ? 'text-[#0B3FB3]' : 'text-slate-800'}">${pct} %</div>
-                <div class="text-[10px] text-slate-500">Vastaavuus</div>
+                <div class="text-base sm:text-lg font-extrabold ${meets ? 'text-[#0B3FB3]' : 'text-slate-600'}">${pctStr}</div>
+                <div class="text-[10px] text-slate-500">${tr.matchLabel}</div>
               </div>
             </div>
-            <div class="w-full h-1.5 rounded-full bg-slate-200 overflow-hidden">
-              <div class="h-1.5 rounded-full ${isFirst ? 'bg-[#0B3FB3]' : 'bg-slate-500'}" style="width:${Math.max(pct, 3)}%"></div>
+            <div class="relative w-full h-2 rounded-full bg-slate-200 overflow-hidden">
+              <div class="h-2 rounded-full transition-all ${meets ? 'bg-[#0B3FB3]' : 'bg-slate-400'}" style="width:${Math.max(pct, 3)}%"></div>
+              <div class="absolute top-0 bottom-0 w-0.5 bg-amber-600/80" style="left:${thrPct}%" title="${tr.top3Thr(thrPct)}"></div>
             </div>
           </div>
         `;
@@ -766,7 +1195,7 @@
     }
 
     async function submitToSociety() {
-      const btn = document.getElementById('submit-sqlite-btn');
+      const btn = document.getElementById('submit-society-btn');
       btn.disabled = true;
       const res = await fetch('/api/submissions', {
         method: 'POST',
@@ -782,21 +1211,27 @@
     }
 
     async function refreshStats() {
-      const res = await fetch('/api/municipal-stats');
+      const res = await fetch(`/api/municipal-stats?lang=${encodeURIComponent(state.lang)}`);
       state.statsData = await res.json();
       renderSocietyTable();
     }
 
     function renderSocietyTable() {
       if (!state.statsData) return;
+      const tr = t();
       const s = state.statsData.summary;
-      document.getElementById('kpi-total-24h').textContent = `${s.total_24h} kpl`;
+      const pcs = tr.unitPcs ? ` ${tr.unitPcs}` : '';
+      const pctFmt = (n) => state.lang === 'en' ? `${n}%` : `${n} %`;
+
+      document.getElementById('kpi-total-24h').textContent = `${s.total_24h}${pcs}`;
       const sign = s.delta_24h >= 0 ? '+' : '';
-      document.getElementById('kpi-delta-24h').textContent = `${sign}${s.delta_24h} vrt. edell. 24h`;
-      document.getElementById('kpi-seek-care').textContent = `${s.seek_care_pct} % (${s.seek_care_24h} kpl)`;
+      document.getElementById('kpi-delta-24h').textContent = tr.kpiDelta(sign, s.delta_24h);
+      document.getElementById('kpi-seek-care').textContent = `${pctFmt(s.seek_care_pct)} (${s.seek_care_24h}${pcs})`;
       if (s.fastest_growing_symptom) {
         const f = s.fastest_growing_symptom;
-        document.getElementById('kpi-fastest-sym').textContent = `${f.symptom} (↑ +${f.delta_abs} kpl / +${f.delta_pct} %)`;
+        document.getElementById('kpi-fastest-sym').textContent = `${f.symptom} (↑ +${f.delta_abs}${pcs} / +${f.delta_pct}%)`;
+      } else {
+        document.getElementById('kpi-fastest-sym').textContent = '-';
       }
 
       const q = (document.getElementById('muni-search').value || '').toLowerCase().trim();
@@ -804,8 +1239,9 @@
         if (!q) return true;
         const hay = [
           r.municipality,
+          r.display_municipality,
           r.county,
-          ...r.pre_diagnoses.map(p => p.label),
+          ...(r.evaluations || []).map(p => p.label),
           ...r.specialties.map(sp => sp.label),
           ...r.symptom_trends.map(t => t.symptom),
         ].join(' ').toLowerCase();
@@ -814,35 +1250,36 @@
 
       const tbody = document.getElementById('society-tbody');
       if (!rows.length) {
-        tbody.innerHTML = `<tr><td colspan="5" class="py-8 text-center text-slate-500">Ei hakua vastaavia kuntarivejä.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" class="py-8 text-center text-slate-500">${tr.emptyRows}</td></tr>`;
         return;
       }
 
       tbody.innerHTML = rows.map(r => {
-        const topPd = r.pre_diagnoses.slice(0, 2).map(p =>
+        const evalList = r.evaluations || [];
+        const topEv = evalList.slice(0, 2).map(p =>
           `<div class="leading-snug"><span class="font-semibold text-slate-800">${p.label}</span> <span class="text-slate-500">(${p.count})</span></div>`
         ).join('');
         const topSpec = r.specialties.slice(0, 2).map(sp =>
           `<span class="inline-block px-2 py-0.5 rounded-md bg-[#EEF3FF] text-[#0B3FB3] font-semibold mr-1 mb-1">${sp.label} (${sp.count})</span>`
         ).join('');
-        const topTrends = r.symptom_trends.slice(0, 2).map(t => {
-          const pos = t.delta_abs > 0;
+        const topTrends = r.symptom_trends.slice(0, 2).map(ti => {
+          const pos = ti.delta_abs > 0;
           const badgeCls = pos
             ? 'bg-[#FEF9C3] text-[#854D0E] border border-[#FDE047]'
             : 'bg-slate-100 text-slate-600';
-          const arrow = pos ? '↑ +' : (t.delta_abs < 0 ? '↓ ' : '→ ');
+          const arrow = pos ? '↑ +' : (ti.delta_abs < 0 ? '↓ ' : '→ ');
           return `
             <div class="flex items-center justify-end gap-1.5 mb-1">
-              <span class="text-slate-700 font-medium">${t.symptom} (${t.count_24h})</span>
-              <span class="px-2 py-0.5 rounded-full font-mono text-[11px] font-bold ${badgeCls}">
-                ${arrow}${t.delta_abs} kpl (${pos ? '+' : ''}${t.delta_pct}%)
+              <span class="text-slate-700 font-medium">${ti.symptom} (${ti.count_24h})</span>
+              <span class="px-2 py-0.5 rounded-full text-[11px] font-bold ${badgeCls}">
+                ${arrow}${ti.delta_abs}${pcs} (${pos ? '+' : ''}${ti.delta_pct}%)
               </span>
             </div>
           `;
         }).join('');
 
         const livePill = r.live_user_count > 0
-          ? `<span class="ml-1.5 px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold">+${r.live_user_count} uusi</span>`
+          ? `<span class="ml-1.5 px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold">${tr.newBadge(r.live_user_count)}</span>`
           : '';
 
         const isExp = state.expandedMuni === r.municipality;
@@ -851,15 +1288,15 @@
             <td colspan="5" class="p-4">
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                 <div>
-                  <div class="font-bold text-slate-700 mb-1.5">Kaikki kunnan pre-diagnoosit (viim. 24h):</div>
+                  <div class="font-bold text-slate-700 mb-1.5">${tr.expEvals}</div>
                   <ul class="space-y-1 text-slate-600">
-                    ${r.pre_diagnoses.map(p => `<li>• <b>${p.label}</b>: ${p.count} kpl</li>`).join('')}
+                    ${evalList.map(p => `<li>• <b>${p.label}</b>: ${p.count}${pcs}</li>`).join('')}
                   </ul>
                 </div>
                 <div>
-                  <div class="font-bold text-slate-700 mb-1.5">Kaikki ilmoitetut oireet ja 24h muutos:</div>
+                  <div class="font-bold text-slate-700 mb-1.5">${tr.expSyms}</div>
                   <ul class="space-y-1 text-slate-600">
-                    ${r.symptom_trends.map(t => `<li>• <b>${t.symptom}</b>: nyt ${t.count_24h} kpl vs. edell. vrk ${t.count_prev_24h} kpl (${t.delta_abs >= 0 ? '+' : ''}${t.delta_abs} kpl)</li>`).join('')}
+                    ${r.symptom_trends.map(ti => `<li>• <b>${ti.symptom}</b>: ${tr.expNowVsPrev(ti.count_24h, ti.count_prev_24h, ti.delta_abs >= 0 ? '+' : '', ti.delta_abs)}</li>`).join('')}
                   </ul>
                 </div>
               </div>
@@ -870,14 +1307,14 @@
         return `
           <tr onclick="toggleExpand('${r.municipality}')" class="hover:bg-slate-50 cursor-pointer transition">
             <td class="py-3.5 pr-3 align-top">
-              <div class="font-bold text-slate-900">${r.municipality}${livePill}</div>
+              <div class="font-bold text-slate-900">${r.display_municipality}${livePill}</div>
               <div class="text-[11px] text-slate-500">${r.county}</div>
             </td>
-            <td class="py-3.5 px-3 align-top font-mono font-bold text-slate-900">
-              ${r.count_24h} kpl
-              <div class="text-[11px] font-normal text-slate-500">${r.delta_submissions >= 0 ? '+' : ''}${r.delta_submissions} vrk</div>
+            <td class="py-3.5 px-3 align-top font-bold text-slate-900">
+              ${r.count_24h}${pcs}
+              <div class="text-[11px] font-normal text-slate-500">${r.delta_submissions >= 0 ? '+' : ''}${r.delta_submissions} / ${tr.unitDay}</div>
             </td>
-            <td class="py-3.5 px-3 align-top space-y-0.5">${topPd || '-'}</td>
+            <td class="py-3.5 px-3 align-top space-y-0.5">${topEv || '-'}</td>
             <td class="py-3.5 px-3 align-top">${topSpec || '-'}</td>
             <td class="py-3.5 pl-3 align-top text-right">${topTrends || '-'}</td>
           </tr>
@@ -912,59 +1349,109 @@
       document.getElementById('bot-tab-society').className = tab === 'society' ? activeBot : idleBot;
     }
 
+    function setPainUI(loc, char, rad, vas, onset) {
+      document.getElementById('pain-location').value = loc;
+      document.getElementById('pain-character').value = char;
+      document.getElementById('pain-radiation').value = rad;
+      document.getElementById('pain-vas').value = vas;
+      document.getElementById('pain-vas-label').textContent = `${vas} / 10`;
+      document.getElementById('pain-onset').value = onset;
+      document.getElementById('pain-onset-label').textContent = `${onset} / 10`;
+    }
+
     function loadPreset(name) {
-      if (name === 'ambiguous') {
+      state.travel = 'V_10';
+      if (name === 'well_none') {
+        state.municipality = 'Helsinki';
+        state.age_band = '30-39';
+        state.sex = 'F';
+        state.duration = '<1w';
+        state.antecedents = new Set();
+        state.symptoms = new Set();
+      } else if (name === 'well_mild') {
         state.municipality = 'Espoo';
         state.age_band = '40-49';
         state.sex = 'F';
         state.duration = '<1w';
-        state.travel = 'V_10';
         state.antecedents = new Set();
         state.symptoms = new Set(['sym_dyspnea', 'sym_sweating']);
-      } else if (name === 'flu') {
-        state.municipality = 'Oulu';
+      } else if (name === 'well_allergy') {
+        state.municipality = 'Vaasa';
         state.age_band = '18-29';
+        state.sex = 'M';
+        state.duration = '<1w';
+        state.antecedents = new Set(['ant_allergy', 'ant_fam_asthma_allergy']);
+        state.symptoms = new Set(['sym_nasal', 'sym_itchy_nose_eyes']);
+      } else if (name === 'well_cold') {
+        state.municipality = 'Oulu';
+        state.age_band = '30-39';
         state.sex = 'F';
         state.duration = '<1w';
-        state.travel = 'V_10';
         state.antecedents = new Set(['ant_sick_contact']);
-        state.symptoms = new Set(['sym_nasal', 'sym_sore_throat', 'sym_cough', 'sym_fever', 'sym_muscle_ache']);
+        state.symptoms = new Set(['sym_nasal', 'sym_sore_throat', 'sym_cough']);
+      } else if (name === 'cancer_lung_smoker') {
+        state.municipality = 'Tampere';
+        state.age_band = '70-79';
+        state.sex = 'M';
+        state.duration = '>3w';
+        state.antecedents = new Set(['ant_smoking', 'ant_fam_lung_cancer']);
+        state.symptoms = new Set(['sym_cough', 'sym_hemoptysis', 'sym_weight_loss', 'sym_appetite_loss', 'sym_dyspnea', 'sym_fatigue_pallor']);
+      } else if (name === 'cancer_lung_exsmoker') {
+        state.municipality = 'Helsinki';
+        state.age_band = '60-69';
+        state.sex = 'F';
+        state.duration = '>3w';
+        state.antecedents = new Set(['ant_former_smoker', 'ant_secondhand_smoke', 'ant_fam_lung_cancer']);
+        state.symptoms = new Set(['sym_cough', 'sym_weight_loss', 'sym_appetite_loss', 'sym_fatigue_pallor', 'sym_pain']);
+        setPainUI('chest_side', 'dull', 'none', 4, 2);
+      } else if (name === 'cancer_lung_nonsmoker') {
+        state.municipality = 'Jyväskylä';
+        state.age_band = '50-59';
+        state.sex = 'F';
+        state.duration = '>3w';
+        state.antecedents = new Set(['ant_fam_lung_cancer', 'ant_secondhand_smoke']);
+        state.symptoms = new Set(['sym_cough', 'sym_hemoptysis', 'sym_weight_loss', 'sym_appetite_loss', 'sym_pain']);
+        setPainUI('chest_center', 'dull', 'back_scapula', 4, 2);
+      } else if (name === 'cancer_panc_epigastric') {
+        state.municipality = 'Turku';
+        state.age_band = '60-69';
+        state.sex = 'M';
+        state.duration = '>3w';
+        state.antecedents = new Set(['ant_diabetes', 'ant_smoking', 'ant_fam_panc_cancer']);
+        state.symptoms = new Set(['sym_weight_loss', 'sym_pale_stool_dark_urine', 'sym_nausea_diarrhea', 'sym_fatigue_pallor', 'sym_pain']);
+        setPainUI('epigastric', 'cramp_tug', 'back_scapula', 5, 2);
+      } else if (name === 'cancer_panc_jaundice') {
+        state.municipality = 'Kuopio';
+        state.age_band = '70-79';
+        state.sex = 'F';
+        state.duration = '>3w';
+        state.antecedents = new Set(['ant_pancreatitis', 'ant_fam_panc_cancer']);
+        state.symptoms = new Set(['sym_weight_loss', 'sym_appetite_loss', 'sym_pale_stool_dark_urine', 'sym_rash', 'sym_pain']);
+        setPainUI('epigastric', 'dull', 'back_scapula', 6, 2);
+        document.getElementById('rash-color').value = 'yellow';
+        document.getElementById('rash-itch').value = 6;
+        document.getElementById('rash-itch-label').textContent = '6 / 10';
+        document.getElementById('rash-swollen').checked = false;
+      } else if (name === 'cancer_anemia') {
+        state.municipality = 'Porvoo';
+        state.age_band = '70-79';
+        state.sex = 'F';
+        state.duration = '>3w';
+        state.antecedents = new Set(['ant_anemia_hist']);
+        state.symptoms = new Set(['sym_fatigue_pallor', 'sym_weight_loss', 'sym_dyspnea', 'sym_dizzy_syncope']);
       } else if (name === 'asthma') {
         state.municipality = 'Helsinki';
         state.age_band = '30-39';
         state.sex = 'F';
         state.duration = '1-3w';
-        state.travel = 'V_10';
         state.antecedents = new Set(['ant_asthma', 'ant_fam_asthma_allergy']);
         state.symptoms = new Set(['sym_cough', 'sym_dyspnea', 'sym_wheeze']);
-      } else if (name === 'lung_check') {
-        state.municipality = 'Tampere';
-        state.age_band = '70-79';
-        state.sex = 'M';
-        state.duration = '>3w';
-        state.travel = 'V_10';
-        state.antecedents = new Set(['ant_smoking', 'ant_fam_lung_cancer']);
-        state.symptoms = new Set(['sym_cough', 'sym_hemoptysis', 'sym_weight_loss', 'sym_appetite_loss', 'sym_dyspnea', 'sym_fatigue_pallor']);
-      } else if (name === 'epigastric_check') {
-        state.municipality = 'Turku';
-        state.age_band = '60-69';
-        state.sex = 'M';
-        state.duration = '>3w';
-        state.travel = 'V_10';
-        state.antecedents = new Set(['ant_diabetes', 'ant_smoking', 'ant_fam_panc_cancer']);
-        state.symptoms = new Set(['sym_weight_loss', 'sym_pale_stool_dark_urine', 'sym_nausea_diarrhea', 'sym_fatigue_pallor', 'sym_pain']);
-        document.getElementById('pain-location').value = 'epigastric';
-        document.getElementById('pain-character').value = 'cramp_tug';
-        document.getElementById('pain-radiation').value = 'back_scapula';
-        document.getElementById('pain-vas').value = 5;
-        document.getElementById('pain-vas-label').textContent = '5 / 10';
-        document.getElementById('pain-onset').value = 2;
-        document.getElementById('pain-onset-label').textContent = '2 / 10';
       }
+
       document.getElementById('municipality-select').value = state.municipality;
       document.getElementById('travel-select').value = state.travel;
       renderControls();
-      runAnalysis();
+      runAnalysis(false);
     }
 
     function resetForm() {
@@ -974,7 +1461,7 @@
       state.travel = 'V_10';
       document.getElementById('travel-select').value = 'V_10';
       renderControls();
-      runAnalysis();
+      runAnalysis(false);
     }
 
     initApp();
