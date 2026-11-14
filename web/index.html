@@ -126,6 +126,7 @@
 
         <!-- LEFT COLUMN: Survey Cards 1 - 3 -->
         <div class="lg:col-span-7 space-y-4">
+          <fieldset id="survey-fieldset" class="space-y-4 border-0 p-0 m-0 min-w-0 transition-opacity">
 
           <!-- CARD 1: PERUSTIEDOT -->
           <div class="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs space-y-4">
@@ -226,7 +227,7 @@
                     <span id="pain-vas-title" class="text-slate-600 font-medium">Voimakkuus (1–10):</span>
                     <span id="pain-vas-label" class="font-bold text-[#0B3FB3]">5 / 10</span>
                   </div>
-                  <input id="pain-vas" type="range" min="1" max="10" value="5" oninput="document.getElementById('pain-vas-label').textContent = this.value + ' / 10'; scheduleAnalysisIfOpen()" class="w-full" />
+                  <input id="pain-vas" type="range" min="1" max="10" value="5" oninput="document.getElementById('pain-vas-label').textContent = this.value + ' / 10'" class="w-full" />
                 </div>
 
                 <div class="space-y-1">
@@ -234,22 +235,22 @@
                     <span id="pain-onset-title" class="text-slate-600 font-medium">Alkamisnopeus (1=hidas, 10=äkillinen):</span>
                     <span id="pain-onset-label" class="font-bold text-[#0B3FB3]">5 / 10</span>
                   </div>
-                  <input id="pain-onset" type="range" min="1" max="10" value="5" oninput="document.getElementById('pain-onset-label').textContent = this.value + ' / 10'; scheduleAnalysisIfOpen()" class="w-full" />
+                  <input id="pain-onset" type="range" min="1" max="10" value="5" oninput="document.getElementById('pain-onset-label').textContent = this.value + ' / 10'" class="w-full" />
                 </div>
               </div>
 
               <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
                 <div>
                   <label id="pain-loc-lbl" class="block text-[11px] font-semibold text-slate-600 mb-1">Pääasiallinen sijainti</label>
-                  <select id="pain-location" onchange="scheduleAnalysisIfOpen()" class="w-full rounded-xl bg-white border border-slate-200 px-3 py-2 text-xs font-medium text-slate-900"></select>
+                  <select id="pain-location" class="w-full rounded-xl bg-white border border-slate-200 px-3 py-2 text-xs font-medium text-slate-900"></select>
                 </div>
                 <div>
                   <label id="pain-char-lbl" class="block text-[11px] font-semibold text-slate-600 mb-1">Kivun luonne</label>
-                  <select id="pain-character" onchange="scheduleAnalysisIfOpen()" class="w-full rounded-xl bg-white border border-slate-200 px-3 py-2 text-xs font-medium text-slate-900"></select>
+                  <select id="pain-character" class="w-full rounded-xl bg-white border border-slate-200 px-3 py-2 text-xs font-medium text-slate-900"></select>
                 </div>
                 <div>
                   <label id="pain-rad-lbl" class="block text-[11px] font-semibold text-slate-600 mb-1">Kivun säteily</label>
-                  <select id="pain-radiation" onchange="scheduleAnalysisIfOpen()" class="w-full rounded-xl bg-white border border-slate-200 px-3 py-2 text-xs font-medium text-slate-900"></select>
+                  <select id="pain-radiation" class="w-full rounded-xl bg-white border border-slate-200 px-3 py-2 text-xs font-medium text-slate-900"></select>
                 </div>
               </div>
             </div>
@@ -261,7 +262,7 @@
                 <span id="swelling-panel-tag" class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#DCE5FF] text-[#0B3FB3]">Tarkentava</span>
               </div>
               <div>
-                <select id="swelling-location" onchange="scheduleAnalysisIfOpen()" class="w-full rounded-xl bg-white border border-slate-200 px-3 py-2 text-xs font-medium text-slate-900"></select>
+                <select id="swelling-location" class="w-full rounded-xl bg-white border border-slate-200 px-3 py-2 text-xs font-medium text-slate-900"></select>
               </div>
             </div>
 
@@ -274,25 +275,27 @@
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label id="rash-color-lbl" class="block text-[11px] font-semibold text-slate-600 mb-1">Ihomuutoksen tai ihon väri</label>
-                  <select id="rash-color" onchange="scheduleAnalysisIfOpen()" class="w-full rounded-xl bg-white border border-slate-200 px-3 py-2 text-xs font-medium text-slate-900"></select>
+                  <select id="rash-color" class="w-full rounded-xl bg-white border border-slate-200 px-3 py-2 text-xs font-medium text-slate-900"></select>
                 </div>
                 <div class="space-y-1">
                   <div class="flex items-center justify-between text-xs">
                     <span id="rash-itch-title" class="text-slate-600 font-medium">Kutinan voimakkuus (0–10):</span>
                     <span id="rash-itch-label" class="font-bold text-[#0B3FB3]">4 / 10</span>
                   </div>
-                  <input id="rash-itch" type="range" min="0" max="10" value="4" oninput="document.getElementById('rash-itch-label').textContent = this.value + ' / 10'; scheduleAnalysisIfOpen()" class="w-full" />
+                  <input id="rash-itch" type="range" min="0" max="10" value="4" oninput="document.getElementById('rash-itch-label').textContent = this.value + ' / 10'" class="w-full" />
                 </div>
               </div>
               <label class="inline-flex items-center gap-2 text-xs text-slate-700 font-medium cursor-pointer">
-                <input id="rash-swollen" type="checkbox" onchange="scheduleAnalysisIfOpen()" class="rounded border-slate-300 text-[#0B3FB3]" />
+                <input id="rash-swollen" type="checkbox" class="rounded border-slate-300 text-[#0B3FB3]" />
                 <span id="rash-swollen-lbl">Ihoalue on koholla tai turvonnut</span>
               </label>
             </div>
           </div>
+          </fieldset>
 
           <!-- PRIMARY ACTION BUTTON -->
-          <button type="button" onclick="submitEvaluation()" class="w-full py-4 px-5 rounded-2xl bg-[#0B3FB3] hover:bg-[#09328F] active:scale-[0.99] text-white font-bold text-sm sm:text-base shadow-md transition flex items-center justify-center gap-2 cursor-pointer">
+          <button type="button" id="primary-eval-btn" onclick="submitEvaluation()" class="w-full py-4 px-5 rounded-2xl bg-[#0B3FB3] hover:bg-[#09328F] active:scale-[0.99] text-white font-bold text-sm sm:text-base shadow-md transition flex items-center justify-center gap-2 cursor-pointer">
+            <span id="btn-run-check" class="hidden text-slate-500">✓</span>
             <span id="btn-run-label">Muodosta hoidon automatisoitu ensiarvio</span>
           </button>
           <p id="btn-run-sub" class="text-center text-[11px] text-slate-500">
@@ -542,6 +545,7 @@
         rashSwollen: 'Ihoalue on koholla tai turvonnut',
         btnRun: 'Muodosta hoidon automatisoitu ensiarvio',
         btnRunSub: 'Palvelu arvioi hoidon tarvetta alustavasti ja ohjaa tarvittaessa oikealle erikoisalalle.',
+        btnRunLockedSub: 'Ensiarvio on muodostettu ja vastaukset on lukittu. Tyhjennä kysely ja aloita alusta tehdäksesi uuden arvion.',
         placeholderTitle: 'Täytä kysely vasemmalla',
         placeholderDesc: 'Valitse perustiedot, mahdolliset esitiedot sekä nykyiset oireet ja paina lopuksi ”Muodosta hoidon automatisoitu ensiarvio”.',
         evalBoxHeader: 'HOIDON TARPEEN ENSIARVIO',
@@ -641,6 +645,7 @@
         rashSwollen: 'Hudområdet är upphöjt eller svullet',
         btnRun: 'Skapa automatiserad första vårdbedömning',
         btnRunSub: 'Tjänsten bedömer vårdbehovet preliminärt och hänvisar vid behov till rätt specialitet.',
+        btnRunLockedSub: 'Bedömningen har skapats och svaren är låsta. Rensa enkäten och börja om för att göra en ny bedömning.',
         placeholderTitle: 'Fyll i enkäten till vänster',
         placeholderDesc: 'Välj basuppgifter, eventuella bakgrundsfaktorer och nuvarande symtom och klicka sedan på ”Skapa automatiserad första vårdbedömning”.',
         evalBoxHeader: 'FÖRSTA BEDÖMNING AV VÅRDBEHOV',
@@ -740,6 +745,7 @@
         rashSwollen: 'Skin area is raised or swollen',
         btnRun: 'Generate automated preliminary evaluation',
         btnRunSub: 'Evaluates the need for care on a preliminary basis and guides you to the appropriate specialty when needed.',
+        btnRunLockedSub: 'Evaluation generated and answers locked. Clear the survey and start over to submit new answers.',
         placeholderTitle: 'Complete the survey on the left',
         placeholderDesc: 'Select your basic profile, any background factors, and current symptoms, then click “Generate automated preliminary evaluation”.',
         evalBoxHeader: 'PRELIMINARY CARE NEED ASSESSMENT',
@@ -843,11 +849,46 @@
       btn.setAttribute('aria-expanded', state.presetsOpen ? 'true' : 'false');
     }
 
+    function syncLockState() {
+      const locked = Boolean(state.hasEvaluated);
+      const tr = t();
+
+      const fieldset = document.getElementById('survey-fieldset');
+      if (fieldset) {
+        fieldset.disabled = locked;
+        fieldset.classList.toggle('opacity-70', locked);
+        fieldset.classList.toggle('select-none', locked);
+      }
+
+      document.querySelectorAll('#presets-drawer button').forEach(btn => {
+        btn.disabled = locked;
+        btn.classList.toggle('opacity-50', locked);
+        btn.classList.toggle('cursor-not-allowed', locked);
+      });
+
+      const primaryBtn = document.getElementById('primary-eval-btn');
+      const checkSpan = document.getElementById('btn-run-check');
+      const subEl = document.getElementById('btn-run-sub');
+      if (primaryBtn) {
+        primaryBtn.disabled = locked;
+        primaryBtn.className = locked
+          ? 'w-full py-4 px-5 rounded-2xl bg-slate-200 text-slate-500 border border-slate-300 font-bold text-sm sm:text-base shadow-none transition flex items-center justify-center gap-2 cursor-not-allowed'
+          : 'w-full py-4 px-5 rounded-2xl bg-[#0B3FB3] hover:bg-[#09328F] active:scale-[0.99] text-white font-bold text-sm sm:text-base shadow-md transition flex items-center justify-center gap-2 cursor-pointer';
+      }
+      if (checkSpan) {
+        checkSpan.classList.toggle('hidden', !locked);
+      }
+      if (subEl) {
+        subEl.textContent = locked ? tr.btnRunLockedSub : tr.btnRunSub;
+      }
+    }
+
     function hideEvaluationCards() {
       state.hasEvaluated = false;
       document.getElementById('result-cards').classList.add('hidden');
       document.getElementById('result-placeholder').classList.remove('hidden');
       document.getElementById('saved-toast').classList.add('hidden');
+      syncLockState();
     }
 
     function setLanguage(lang) {
@@ -926,7 +967,7 @@
       document.getElementById('rash-swollen-lbl').textContent = tr.rashSwollen;
 
       document.getElementById('btn-run-label').textContent = tr.btnRun;
-      document.getElementById('btn-run-sub').textContent = tr.btnRunSub;
+      document.getElementById('btn-run-sub').textContent = state.hasEvaluated ? tr.btnRunLockedSub : tr.btnRunSub;
       document.getElementById('placeholder-title').textContent = tr.placeholderTitle;
       document.getElementById('placeholder-desc').textContent = tr.placeholderDesc;
       document.getElementById('eval-box-header').textContent = tr.evalBoxHeader;
@@ -972,14 +1013,14 @@
         return `<option value="${m.name}">${mName} – ${m[countyKey]}</option>`;
       }).join('');
       muniSel.value = state.municipality;
-      muniSel.onchange = (e) => { state.municipality = e.target.value; };
+      muniSel.onchange = (e) => { if (!state.hasEvaluated) state.municipality = e.target.value; };
 
       const travSel = document.getElementById('travel-select');
       travSel.innerHTML = catalog.travel_regions.map(t =>
         `<option value="${t.id}">${t[labelKey]}</option>`
       ).join('');
       travSel.value = state.travel;
-      travSel.onchange = (e) => { state.travel = e.target.value; scheduleAnalysisIfOpen(); };
+      travSel.onchange = (e) => { if (!state.hasEvaluated) state.travel = e.target.value; };
 
       const preserveAndFill = (elId, items) => {
         const el = document.getElementById(elId);
@@ -1001,32 +1042,36 @@
       const tr = t();
       const labelKey = `label_${lg}`;
       const groupKey = `group_${lg}`;
+      const locked = Boolean(state.hasEvaluated);
+      const ptr = locked ? 'cursor-not-allowed' : 'cursor-pointer';
 
       const ageGrid = document.getElementById('age-grid');
       ageGrid.innerHTML = catalog.age_bands.map(b => {
         const active = state.age_band === b.id;
-        return `<button type="button" onclick="setAge('${b.id}')" class="py-2.5 px-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
+        return `<button type="button" ${locked ? 'disabled' : ''} onclick="setAge('${b.id}')" class="py-2.5 px-2 rounded-xl text-xs font-bold border transition ${ptr} ${
           active
             ? 'bg-[#0B3FB3] text-white border-[#0B3FB3] shadow-2xs'
-            : 'bg-[#F4F6FA] text-slate-800 border-slate-200 hover:bg-slate-200/70'
+            : `bg-[#F4F6FA] text-slate-800 border-slate-200 ${locked ? '' : 'hover:bg-slate-200/70'}`
         }">${b.label}</button>`;
       }).join('');
 
       document.querySelectorAll('.sex-btn').forEach(btn => {
         const active = btn.dataset.sex === state.sex;
-        btn.className = `sex-btn py-2.5 px-3 rounded-xl text-xs font-bold border transition cursor-pointer ${
+        btn.disabled = locked;
+        btn.className = `sex-btn py-2.5 px-3 rounded-xl text-xs font-bold border transition ${ptr} ${
           active
             ? 'bg-[#0B3FB3] text-white border-[#0B3FB3] shadow-2xs'
-            : 'bg-[#F4F6FA] text-slate-800 border-slate-200 hover:bg-slate-200/70'
+            : `bg-[#F4F6FA] text-slate-800 border-slate-200 ${locked ? '' : 'hover:bg-slate-200/70'}`
         }`;
       });
 
       document.querySelectorAll('.dur-btn').forEach(btn => {
         const active = btn.dataset.dur === state.duration;
-        btn.className = `dur-btn py-2.5 px-3 rounded-xl text-xs font-bold border transition cursor-pointer ${
+        btn.disabled = locked;
+        btn.className = `dur-btn py-2.5 px-3 rounded-xl text-xs font-bold border transition ${ptr} ${
           active
             ? 'bg-[#0B3FB3] text-white border-[#0B3FB3] shadow-2xs'
-            : 'bg-[#F4F6FA] text-slate-800 border-slate-200 hover:bg-slate-200/70'
+            : `bg-[#F4F6FA] text-slate-800 border-slate-200 ${locked ? '' : 'hover:bg-slate-200/70'}`
         }`;
       });
 
@@ -1038,7 +1083,7 @@
         <div class="space-y-2">
           <div class="text-[11px] font-bold tracking-wider uppercase text-slate-500">${grp}</div>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            ${items.map(item => renderCheckCard(item.id, item[labelKey], state.antecedents.has(item.id), 'toggleAntecedent')).join('')}
+            ${items.map(item => renderCheckCard(item.id, item[labelKey], state.antecedents.has(item.id), 'toggleAntecedent', locked)).join('')}
           </div>
         </div>
       `).join('');
@@ -1051,7 +1096,7 @@
         <div class="space-y-2">
           <div class="text-xs font-bold text-slate-700">${grp}</div>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            ${items.map(item => renderCheckCard(item.id, item[labelKey], state.symptoms.has(item.id), 'toggleSymptom')).join('')}
+            ${items.map(item => renderCheckCard(item.id, item[labelKey], state.symptoms.has(item.id), 'toggleSymptom', locked)).join('')}
           </div>
         </div>
       `).join('');
@@ -1063,32 +1108,28 @@
 
       document.getElementById('selected-ant-pill').textContent = tr.selectedAnt(state.antecedents.size);
       document.getElementById('selected-count-pill').textContent = tr.selectedSym(state.symptoms.size);
+      syncLockState();
     }
 
-    function renderCheckCard(id, label, checked, fnName) {
+    function renderCheckCard(id, label, checked, fnName, locked) {
       const cardStyle = checked
         ? 'bg-[#DCE5FF] border-[#B4C6FF] text-[#082B7A] font-semibold'
-        : 'bg-[#F4F6FA] border-slate-200 text-slate-800 hover:bg-slate-200/60';
+        : `bg-[#F4F6FA] border-slate-200 text-slate-800 ${locked ? '' : 'hover:bg-slate-200/60'}`;
       const boxStyle = checked
         ? 'border-[#0B3FB3] bg-[#0B3FB3] text-white'
         : 'border-slate-300 bg-white text-transparent';
+      const ptr = locked ? 'cursor-not-allowed' : 'cursor-pointer';
       return `
-        <button type="button" onclick="${fnName}('${id}')" class="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border text-left text-xs transition cursor-pointer ${cardStyle}">
+        <button type="button" ${locked ? 'disabled' : ''} onclick="${fnName}('${id}')" class="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border text-left text-xs transition ${ptr} ${cardStyle}">
           <span class="w-4 h-4 rounded flex items-center justify-center border text-[11px] font-bold shrink-0 ${boxStyle}">✓</span>
           <span class="leading-snug">${label}</span>
         </button>
       `;
     }
 
-    function scheduleAnalysisIfOpen() {
-      if (!state.hasEvaluated) return;
-      if (analysisTimer) clearTimeout(analysisTimer);
-      analysisTimer = setTimeout(() => runAnalysis(false), 60);
-    }
-
-    function setAge(id) { state.age_band = id; renderControls(); scheduleAnalysisIfOpen(); }
-    function setSex(s) { state.sex = s; renderControls(); scheduleAnalysisIfOpen(); }
-    function setDuration(d) { state.duration = d; renderControls(); scheduleAnalysisIfOpen(); }
+    function setAge(id) { if (state.hasEvaluated) return; state.age_band = id; renderControls(); }
+    function setSex(s) { if (state.hasEvaluated) return; state.sex = s; renderControls(); }
+    function setDuration(d) { if (state.hasEvaluated) return; state.duration = d; renderControls(); }
 
     function onThresholdInput(val) {
       const pct = parseInt(val, 10);
@@ -1104,17 +1145,17 @@
     }
 
     function toggleAntecedent(id) {
+      if (state.hasEvaluated) return;
       if (state.antecedents.has(id)) state.antecedents.delete(id);
       else state.antecedents.add(id);
       renderControls();
-      scheduleAnalysisIfOpen();
     }
 
     function toggleSymptom(id) {
+      if (state.hasEvaluated) return;
       if (state.symptoms.has(id)) state.symptoms.delete(id);
       else state.symptoms.add(id);
       renderControls();
-      scheduleAnalysisIfOpen();
     }
 
     function buildPayload() {
@@ -1149,7 +1190,9 @@
     }
 
     async function submitEvaluation() {
+      if (state.hasEvaluated) return;
       state.hasEvaluated = true;
+      renderControls();
       await runAnalysis(true);
     }
 
@@ -1431,6 +1474,7 @@
     }
 
     function loadPreset(name) {
+      if (state.hasEvaluated) return;
       state.travel = 'V_10';
       if (name === 'well_none') {
         state.municipality = 'Helsinki';
@@ -1521,8 +1565,8 @@
 
       document.getElementById('municipality-select').value = state.municipality;
       document.getElementById('travel-select').value = state.travel;
-      renderControls();
       hideEvaluationCards();
+      renderControls();
     }
 
     function resetForm() {
@@ -1531,8 +1575,15 @@
       state.duration = '<1w';
       state.travel = 'V_10';
       document.getElementById('travel-select').value = 'V_10';
-      renderControls();
+      setPainUI('chest_center', 'pressing', 'none', 5, 5);
+      document.getElementById('swelling-location').value = 'calf';
+      document.getElementById('rash-color').value = 'red';
+      document.getElementById('rash-itch').value = 4;
+      document.getElementById('rash-itch-label').textContent = '4 / 10';
+      document.getElementById('rash-swollen').checked = false;
       hideEvaluationCards();
+      renderControls();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
     initApp();
