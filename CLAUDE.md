@@ -20,6 +20,7 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 .venv/bin/python -m src.train --no-demographics         # same model without SEX/AGE tokens
 .venv/bin/python -m src.train --model mlp --alpha 0.5   # MLP mixing hard label and differential (~1 min on MPS)
 .venv/bin/python -m src.analysis                        # subgroup CIs, gaps, demographics ablation, reliability -> runs/analysis/
+.venv/bin/python -m src.final_eval --check-only         # reload final checkpoints and verify on validate; test untouched
 ```
 
 Each training run writes to `runs/<timestamp>_<name>/` (git-ignored): `metrics.json`, `per_class.csv`, `subgroups.csv`, `probs_validate.npy`, the model (`model.pkl` or `model.pt`), `history.json` per epoch for the MLP, and `_adjusted` variants of the metrics after post-hoc logit adjustment. There is no test runner or linter yet (`tests/` is empty). `requirements.txt` holds pinned top-level packages only; add new ones by hand with an exact version.
@@ -41,6 +42,7 @@ Evidence encoding in `EVIDENCES`: a bare code (`E_91`) means "yes" to a binary q
 - `src/evaluate.py`: `evaluate(probs, y, labels, groups)` returns headline metrics (top-1/3/5, macro-F1, balanced accuracy, log-loss, ECE, and `diff_kl` = KL(differential ‖ model) when the differential is passed), a per-pathology table, and metrics per subgroup. `subgroups()` derives sex and age band from the demographic tokens, and severity and cancer/non-cancer from the true label. DDXPlus's differential metrics (DDR/DDP/DDF1) are not implemented yet.
 - `src/train.py`: CLI that trains `--model logreg` or `--model mlp`, scores on validate (never test) and saves the run. The MLP early-stops on its own training objective computed on validate and defaults to MPS when available.
 - `src/analysis.py`: equity analysis from saved `probs_validate.npy` (no retraining). `latest_runs()` picks the newest full-data run per (model, alpha, no_demographics); `row_stats()` precomputes per-patient ingredients so `subgroup_ci()` (bootstrap 95% CIs), `gap_table()`, `ablation()` (paired bootstrap, without − with demographics) and `reliability()` are cheap. The ablation needs a `--no-demographics` run of the same config.
+- `src/final_eval.py`: the one test-set run (already done, see "Test results"). Reloads the final model (MLP α=0.5 with demographics) and two references, requires each to reproduce its saved validate predictions, then scores test once into `runs/test/`. It refuses to run again unless `--force`; don't re-run it to compare new models, select on validate instead.
 - `notebooks/`: exploration only; move reusable code into `src/`. Notebooks find the repo root themselves and add it to `sys.path`, so `from src.data import ...` works whether opened from the root or `notebooks/`. `sampling.ipynb` saves samples to `data/samples/` as pickles (keeps list and category columns). `equity_analysis.ipynb` is the step 4 write-up (charts, tables and a Findings section); it is committed with outputs, so re-execute it after retraining (`jupyter nbconvert --execute --inplace`) and re-check the Findings text.
 
 ## Gotchas
@@ -101,4 +103,14 @@ Training is done on all 49 conditions and both demographics, SEX and AGE are tra
 
 MLP default α = 0.5 (`--alpha`). On validate it keeps top-1 at 0.997 while matching the differential closely (diff_kl 0.36 vs 16 at α = 0), at the cost of calibration: the model predicts the hard-label/differential mix, so its top-class confidence (~0.6) understates its accuracy. Use α = 0 when calibrated confidence matters more than the differential. Post-hoc logit adjustment hurts soft-target models; don't use it with α > 0.
 
+## Test results
 
+Evaluated once on 2026-11-14 with `src.final_eval` (test split, 134,529 patients; models fixed beforehand, references not used for selection). Local copy in `runs/test/20261114-181230/` (git-ignored).
+
+| Model | Top-1 | Top-3 | Macro-F1 | Log-loss | ECE | diff_kl |
+|---|---|---|---|---|---|---|
+| **MLP α=0.5 (final)** | 0.9975 | 0.9998 | 0.9970 | 0.471 | 0.361 | 0.360 |
+| Logistic regression | 0.9973 | 1.0000 | 0.9968 | 0.009 | 0.001 | 13.47 |
+| MLP α=0 | 0.9976 | 1.0000 | 0.9971 | 0.007 | 0.0003 | 16.33 |
+
+Test matches validate within 0.0005 on every metric, so model selection did not overfit validate. Subgroups (final model, bootstrap 95% CIs): no gap by sex (0.05 pp) or age band (≤0.09 pp) beyond noise; severity 4 is lower (0.9933 vs ≥0.998), driven by Acute rhinosinusitis (recall 0.86); both cancers 100%. Same caveats as the equity notebook: synthetic data, only 2 cancers.
