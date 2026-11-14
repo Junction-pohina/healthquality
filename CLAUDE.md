@@ -19,6 +19,7 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 .venv/bin/python -m src.train --train-rows 50000        # quick run on a random subset
 .venv/bin/python -m src.train --no-demographics         # same model without SEX/AGE tokens
 .venv/bin/python -m src.train --model mlp --alpha 0.5   # MLP mixing hard label and differential (~1 min on MPS)
+.venv/bin/python -m src.analysis                        # subgroup CIs, gaps, demographics ablation, reliability -> runs/analysis/
 ```
 
 Each training run writes to `runs/<timestamp>_<name>/` (git-ignored): `metrics.json`, `per_class.csv`, `subgroups.csv`, `probs_validate.npy`, the model (`model.pkl` or `model.pt`), `history.json` per epoch for the MLP, and `_adjusted` variants of the metrics after post-hoc logit adjustment. There is no test runner or linter yet (`tests/` is empty). `requirements.txt` holds pinned top-level packages only; add new ones by hand with an exact version.
@@ -39,7 +40,8 @@ Evidence encoding in `EVIDENCES`: a bare code (`E_91`) means "yes" to a binary q
 - `src/models.py`: `to_csr()` turns an encoded split into a scipy matrix (optionally zeroing the demographic columns), `make_logreg()` is the baseline, `logit_adjust()` divides out the training prior. `MLP` uses an `EmbeddingBag` over token ids as its first layer (a linear layer on the multi-hot vector without building it); `SparseRows` slices CSR rows into its batches; `distillation_loss()` mixes hard-label cross-entropy with cross-entropy to the differential, weighted by `alpha`.
 - `src/evaluate.py`: `evaluate(probs, y, labels, groups)` returns headline metrics (top-1/3/5, macro-F1, balanced accuracy, log-loss, ECE, and `diff_kl` = KL(differential ‖ model) when the differential is passed), a per-pathology table, and metrics per subgroup. `subgroups()` derives sex and age band from the demographic tokens, and severity and cancer/non-cancer from the true label. DDXPlus's differential metrics (DDR/DDP/DDF1) are not implemented yet.
 - `src/train.py`: CLI that trains `--model logreg` or `--model mlp`, scores on validate (never test) and saves the run. The MLP early-stops on its own training objective computed on validate and defaults to MPS when available.
-- `notebooks/`: exploration only; move reusable code into `src/`. Notebooks find the repo root themselves and add it to `sys.path`, so `from src.data import ...` works whether opened from the root or `notebooks/`. `sampling.ipynb` saves samples to `data/samples/` as pickles (keeps list and category columns).
+- `src/analysis.py`: equity analysis from saved `probs_validate.npy` (no retraining). `latest_runs()` picks the newest full-data run per (model, alpha, no_demographics); `row_stats()` precomputes per-patient ingredients so `subgroup_ci()` (bootstrap 95% CIs), `gap_table()`, `ablation()` (paired bootstrap, without − with demographics) and `reliability()` are cheap. The ablation needs a `--no-demographics` run of the same config.
+- `notebooks/`: exploration only; move reusable code into `src/`. Notebooks find the repo root themselves and add it to `sys.path`, so `from src.data import ...` works whether opened from the root or `notebooks/`. `sampling.ipynb` saves samples to `data/samples/` as pickles (keeps list and category columns). `equity_analysis.ipynb` is the step 4 write-up (charts, tables and a Findings section); it is committed with outputs, so re-execute it after retraining (`jupyter nbconvert --execute --inplace`) and re-check the Findings text.
 
 ## Gotchas
 
