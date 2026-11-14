@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-# Suomen kunnat ja hyvinvointialueet (FI / SV / EN)
+# Suomen kunnat ja hyvinvointialueet (FI / SV / EN) ilman toistoa tai sisäkkäisiä sulkeita
 MUNICIPALITIES: list[dict[str, str]] = [
-    {"name": "Helsinki", "name_sv": "Helsingfors", "county_fi": "HUS-yhtymä (Helsinki)", "county_sv": "HUS-sammanslutningen (Helsingfors)", "county_en": "HUS Group (Helsinki)"},
+    {"name": "Helsinki", "name_sv": "Helsingfors", "county_fi": "HUS-alue", "county_sv": "HUS-området", "county_en": "HUS Region"},
     {"name": "Espoo", "name_sv": "Esbo", "county_fi": "Länsi-Uusimaa", "county_sv": "Västra Nyland", "county_en": "Western Uusimaa"},
     {"name": "Tampere", "name_sv": "Tammerfors", "county_fi": "Pirkanmaa", "county_sv": "Birkaland", "county_en": "Pirkanmaa"},
     {"name": "Vantaa", "name_sv": "Vanda", "county_fi": "Vantaa ja Kerava", "county_sv": "Vanda och Kervo", "county_en": "Vantaa and Kerava"},
@@ -813,9 +813,9 @@ CONDITIONS_49: dict[str, dict] = {
         "requires_doctor": True,
     },
     "Anemia": {
-        "name_fi": "Anemia (matala hemoglobiini, jatkoselvittely)",
-        "name_sv": "Anemi (lågt blodvärde, fortsatt utredning)",
-        "name_en": "Anemia (low hemoglobin, further evaluation)",
+        "name_fi": "Anemia (matala hemoglobiini)",
+        "name_sv": "Anemi (lågt blodvärde)",
+        "name_en": "Anemia (low hemoglobin)",
         "icd10": "D64.9",
         "severity": 4,
         "specialty_fi": "Sisätaudit / Yleislääketiede",
@@ -826,7 +826,7 @@ CONDITIONS_49: dict[str, dict] = {
     "Atrial fibrillation": {
         "name_fi": "Eteisvärinä (rytmihäiriöepäily)",
         "name_sv": "Förmaksflimmer (misstänkt rytmrubbning)",
-        "name_en": "Atrial fibrillation (heart rhythm evaluation)",
+        "name_en": "Atrial fibrillation",
         "icd10": "I48.9",
         "severity": 3,
         "specialty_fi": "Kardiologia",
@@ -835,9 +835,9 @@ CONDITIONS_49: dict[str, dict] = {
         "requires_doctor": True,
     },
     "Boerhaave": {
-        "name_fi": "Ruokatorven kudosrasitus- tai vaurioepäily",
-        "name_sv": "Misstänkt skada i matstrupen",
-        "name_en": "Esophageal tissue strain / injury evaluation",
+        "name_fi": "Ruokatorven äkillinen vaurioepäily",
+        "name_sv": "Misstänkt skada på matstrupen",
+        "name_en": "Suspected esophageal injury",
         "icd10": "K22.3",
         "severity": 2,
         "specialty_fi": "Gastroenterologinen kirurgia",
@@ -1066,9 +1066,9 @@ CONDITIONS_49: dict[str, dict] = {
         "requires_doctor": True,
     },
     "Pancreatic neoplasm": {
-        "name_fi": "Haiman alueen jatkotutkimustarve (kasvainepäily)",
-        "name_sv": "Behov av fortsatt bukspottkörtelutredning (misstänkt förändring)",
-        "name_en": "Further pancreatic evaluation needed (suspected neoplasm)",
+        "name_fi": "Haiman alueen kasvainepäily (jatkotutkimustarve)",
+        "name_sv": "Misstänkt förändring i bukspottkörteln (fortsatt utredning)",
+        "name_en": "Suspected pancreatic neoplasm (further evaluation)",
         "icd10": "C25",
         "severity": 3,
         "specialty_fi": "Gastroenterologia / Gastroenterologinen kirurgia",
@@ -1078,9 +1078,9 @@ CONDITIONS_49: dict[str, dict] = {
         "is_cancer": True,
     },
     "Panic attack": {
-        "name_fi": "Paniikkioireisto / autonominen vireystilareaktio",
-        "name_sv": "Paniksymtom / autonom stressreaktion",
-        "name_en": "Panic episode / autonomic stress response",
+        "name_fi": "Paniikkikohtaus tai autonominen stressireaktio",
+        "name_sv": "Panikattack eller autonom stressreaktion",
+        "name_en": "Panic attack or acute stress response",
         "icd10": "F41.0",
         "severity": 5,
         "specialty_fi": "Yleislääketiede / Psykiatria",
@@ -1133,9 +1133,9 @@ CONDITIONS_49: dict[str, dict] = {
         "requires_doctor": True,
     },
     "Pulmonary neoplasm": {
-        "name_fi": "Keuhkojen jatkotutkimustarve (kasvainepäily)",
-        "name_sv": "Behov av fortsatt lungutredning (misstänkt förändring)",
-        "name_en": "Further pulmonary evaluation needed (suspected neoplasm)",
+        "name_fi": "Keuhkojen kasvainepäily (jatkotutkimustarve)",
+        "name_sv": "Misstänkt lungförändring (fortsatt utredning)",
+        "name_en": "Suspected pulmonary neoplasm (further evaluation)",
         "icd10": "C34",
         "severity": 3,
         "specialty_fi": "Keuhkosairaudet ja allergologia",

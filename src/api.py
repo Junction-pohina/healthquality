@@ -1,4 +1,4 @@
-"""FastAPI backend for HealthQuality: preliminary automated evaluation & municipal dashboard.
+"""FastAPI backend for HealthQuality: automated care evaluation & regional overview.
 
 Run locally from repository root:
     uvicorn src.api:app --reload --port 8000
@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import pickle
+import re
 import sqlite3
 import time
 from pathlib import Path
@@ -46,8 +47,9 @@ WEB_DIR = ROOT / "web"
 DB_PATH = DATA_DIR / "submissions.db"
 
 SUPPORTED_LANGS = ("fi", "sv", "en")
+_ACTIVE_THRESHOLD: float = 0.25
 
-app = FastAPI(title="HealthQuality API", version="0.3.0")
+app = FastAPI(title="HealthQuality API", version="0.4.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -117,7 +119,7 @@ class PredictRequest(BaseModel):
     lang: str = "fi"  # "fi" | "sv" | "en"
     municipality: str = "Helsinki"
     age_band: str = "30-39"
-    sex: str = "F"  # "F" | "M" | "U"
+    sex: str = "F"  # "F" | "M"
     duration: str = "1-3w"  # "<1w" | "1-3w" | ">3w"
     travel: str = "V_10"
     antecedents: list[str] = Field(default_factory=list)
@@ -126,7 +128,7 @@ class PredictRequest(BaseModel):
     swelling: SwellingDetails | None = None
     rash: RashDetails | None = None
     logit_adjust: bool = False
-    threshold: float = Field(default=0.25, ge=0.05, le=0.85)
+    threshold: float | None = Field(default=None, ge=0.05, le=0.85)
 
 
 # ---------------------------------------------------------------------------
@@ -287,9 +289,10 @@ def compute_probabilities(req: PredictRequest) -> np.ndarray:
     if not req.symptoms:
         return np.zeros(len(SORTED_LABELS), dtype=np.float64)
 
+    sex_clean = "M" if req.sex == "M" else "F"
     encoded_tokens = build_tokens_from_selection(
         age_band=req.age_band,
-        sex=req.sex,
+        sex=sex_clean,
         travel_id=req.travel,
         antecedent_ids=req.antecedents,
         symptom_ids=req.symptoms,
@@ -333,159 +336,167 @@ def compute_probabilities(req: PredictRequest) -> np.ndarray:
 
 
 # ---------------------------------------------------------------------------
-# Multilingual clinical guidance builder (FI / SV / EN)
+# Idiomatic clinical guidance copy (FI / SV / EN)
 # ---------------------------------------------------------------------------
+
+def _prose_term(raw: str) -> str:
+    """Format a condition or symptom label for natural inline mid-sentence prose without nested parentheses."""
+    s = raw.split(" / ")[0].strip()
+    s = re.sub(r"\s*\([^)]*\)\s*$", "", s).strip()
+    # Remove any remaining internal parentheticals so outer parentheses never nest
+    s = re.sub(r"\s*\([^)]*\)", "", s).strip()
+    if not s:
+        return raw.strip()
+    first_word = s.split()[0].rstrip(":,-")
+    if len(first_word) > 1 and first_word.isupper():
+        return s
+    # Preserve proper nouns like Guillain-Barré
+    if s.startswith("Guillain-"):
+        return s
+    return s[0].lower() + s[1:]
+
 
 _COPY: dict[str, dict[str, str]] = {
     "fi": {
-        "no_sym_badge": "Vointi hyvä • Ei valittuja oireita",
-        "no_sym_title": "Hoidon automaattinen ensiarvio: Ei hoidon tarvetta tällä hetkellä",
-        "no_sym_text_short": "Et ole valinnut nykyisiä oireita, joten alustavan arvion perusteella välitöntä hoidon tarvetta ei ole.",
-        "no_sym_text_long": "Et ole valinnut nykyisiä oireita. Jos sinulla kuitenkin on jo viikkoja jatkunut vaiva, valitse oire listalta tai hakeudu tarkastukseen, mikäli oireilu jatkuu vielä.",
-        "no_sym_spec": "Ei hoidon tarvetta (voinnin normaali seuranta)",
-        "no_sym_rat": "Valitse yksi tai useampi oire saadaksesi oirekuvaan perustuvan hoidon automaattisen ensiarvion.",
+        "no_sym_badge": "Ei valittuja oireita",
+        "no_sym_title": "Ei todettua hoidon tarvetta",
+        "no_sym_text_short": "Et ole valinnut nykyisiä oireita, joten antamiesi tietojen perusteella välitöntä hoidon tarvetta ei ole.",
+        "no_sym_text_long": "Et ole valinnut nykyisiä oireita. Jos sinulla on kuitenkin ollut pitkittynyttä oireilua, valitse oireet listalta tai hakeudu vastaanotolle tarkastukseen, mikäli vaiva jatkuu.",
+        "no_sym_spec": "Ei hoidon tarvetta",
+        "no_sym_rat": "Valitse yksi tai useampi oire, jotta palvelu arvioi hoidon tarvetta oirekuvasi perusteella.",
 
-        "below_badge": "Ei välitöntä vastaanottotarvetta",
-        "below_badge_long": "Matala vastaavuus • Huomioi pitkittynyt kesto",
-        "below_title": "Hoidon automaattinen ensiarvio: Oirekuva jää vastaavuuskynnyksen alle",
-        "below_text": "Mikään yksittäinen arvioitava tila ei ylittänyt asetettua vastaavuuskynnystä ({thr} %; korkein vastaavuus {top} % tilalle {cond}).",
-        "below_tail_lt1w": " Oireilu on kestänyt alle viikon, joten voit seurata vointia rauhassa kotona ja ottaa yhteyttä terveydenhuoltoon, jos oireet voimistuvat.",
-        "below_tail_1_3w": " Koska oireilu on kuitenkin kestänyt jo 1–3 viikkoa, suositellaan menemään tarkastukseen vastaanotolle, mikäli oireet jatkuvat vielä.",
-        "below_tail_gt3w": " Koska oireilu on jatkunut jo yli 3 viikkoa, suositellaan hyvälläkin ensiarviolla menemään tarkastukseen vastaanotolle, mikäli oireet jatkuvat vielä.",
+        "below_badge": "Seuranta kotona riittää",
+        "below_badge_long": "Matala vastaavuus • Pitkittynyt oireilu",
+        "below_title": "Ei välitöntä vastaanottotarvetta",
+        "below_text": "Ilmoittamasi oireet eivät viittaa selkeästi yksittäiseen sairauteen (lähin vastaavuus {top} %: {cond}).",
+        "below_tail_lt1w": " Koska oireet ovat kestäneet alle viikon, voit seurata vointiasi kotona ja olla yhteydessä terveydenhuoltoon, jos oireet voimistuvat.",
+        "below_tail_1_3w": " Oireilu on kuitenkin jatkunut jo 1–3 viikkoa, joten suosittelemme hakeutumaan tarkastukseen, mikäli oireet eivät lähiaikoina helpota.",
+        "below_tail_gt3w": " Koska oireilu on jatkunut yli kolme viikkoa, pitkittyneiden oireiden syy on suositeltavaa tarkistuttaa vastaanotolla, mikäli vaiva jatkuu.",
         "below_spec": "Kotihoito ja voinnin seuranta",
-        "below_spec_long": "Voinnin seuranta (tarvittaessa Yleislääketiede)",
+        "below_spec_long": "Voinnin seuranta / Yleislääketiede",
 
-        "self_badge": "Hoidon automaattinen ensiarvio: Kotihoito ja seuranta",
-        "self_title": "Hoidon automaattinen ensiarvio: Todennäköisesti kotihoidolla helpottava vaiva",
-        "self_text_lt1w": "Ilmoittamasi oireet sopivat parhaiten lievään tilaan ({cond}, {top} %), joka helpottaa tavallisesti levolla ja oireenmukaisella kotihoidolla muutamassa päivässä.",
-        "self_text_1_3w": "Ilmoittamasi oireet sopivat ensisijaisesti lievään tilaan ({cond}, {top} %). Koska oireilu on kestänyt jo 1–3 viikkoa, suositellaan menemään tarkastukseen vastaanotolle, mikäli oireet jatkuvat vielä.",
+        "self_badge": "Omahoito ja voinnin seuranta",
+        "self_title": "Todennäköisesti lievä, kotihoidolla helpottava vaiva",
+        "self_text_lt1w": "Oirekuvaasi vastaa lähimmin {cond} (vastaavuus {top} %). Tällainen vaiva paranee tavallisesti itsestään muutamassa päivässä levolla ja oireenmukaisella kotihoidolla.",
+        "self_text_1_3w": "Oirekuvaasi vastaa lähimmin {cond} (vastaavuus {top} %). Koska oireilu on jatkunut jo 1–3 viikkoa, suosittelemme hakeutumaan terveydenhuollon tarkastukseen, mikäli oireet eivät pian helpota.",
         "self_spec": "Omahoito (tarvittaessa Yleislääketiede)",
 
-        "prolonged_self_badge": "Suositus: Tarkastus pitkittyneen oireilun vuoksi",
-        "prolonged_self_title": "Hoidon automaattinen ensiarvio: Pitkittynyt oireilu (> 3 viikkoa)",
-        "prolonged_self_text": "Oirekuva vastaa ensisijaisesti tilaa {cond} ({top} %), joka on tyypillisesti lievä. Koska oireilu on kuitenkin jatkunut yli kolme viikkoa, suositellaan menemään tarkastukseen vastaanotolle, mikäli oireet jatkuvat vielä.",
+        "prolonged_self_badge": "Suositus: Tarkastuskäynti pitkittyneiden oireiden vuoksi",
+        "prolonged_self_title": "Pitkittynyt oireilu on suositeltavaa tarkistuttaa",
+        "prolonged_self_text": "Oirekuvaasi vastaa lähimmin {cond} (vastaavuus {top} %), joka on tavallisesti lievä. Koska oireet ovat kuitenkin jatkuneet yli kolme viikkoa, suosittelemme varaamaan ajan vastaanotolle tarkastusta varten, mikäli vaiva jatkuu.",
 
         "sched_badge": "Suositus: Kiireetön vastaanottoarvio",
-        "sched_title": "Hoidon automaattinen ensiarvio: Tarkastuskäynti vastaanotolla on suositeltava",
-        "sched_text_lt1w": "Ilmoittamasi oireet vastaavat melko hyvin tilan {cond} ({top} %) ominaispiirteitä. Suosittelemme varaamaan kiireettömän ajan vastaanotolle jatkoarviota varten, mikäli oireet eivät ala helpottaa.",
-        "sched_text_1_3w": "Ilmoittamasi oireet vastaavat tilan {cond} ({top} %) ominaispiirteitä ja ovat kestäneet 1–3 viikkoa. Suosittelemme varaamaan ajan vastaanotolle tarkastukseen.",
-        "sched_text_gt3w": "Ilmoittamasi oireet vastaavat tilan {cond} ({top} %) ominaispiirteitä ja ovat jatkuneet yli 3 viikkoa. Pitkittyneen keston vuoksi suositellaan hakeutumaan vastaanotolle tutkittavaksi.",
+        "sched_title": "Vastaanottokäynti on suositeltava",
+        "sched_text_lt1w": "Oirekuvaasi vastaa lähimmin {cond} (vastaavuus {top} %). Suosittelemme varaamaan kiireettömän ajan vastaanotolle arviota varten, mikäli oireet eivät ala helpottaa.",
+        "sched_text_1_3w": "Oirekuvaasi vastaa lähimmin {cond} (vastaavuus {top} %), ja oireet ovat kestäneet 1–3 viikkoa. Suosittelemme varaamaan ajan vastaanotolle tarkempaa arviota varten.",
+        "sched_text_gt3w": "Oirekuvaasi vastaa lähimmin {cond} (vastaavuus {top} %), ja oireilu on jatkunut yli kolme viikkoa. Pitkittyneen oireilun vuoksi suosittelemme hakeutumaan vastaanotolle tutkittavaksi.",
 
         "prio_badge": "Suositus: Tutkittavaksi vastaanotolle",
-        "prio_title": "Hoidon automaattinen ensiarvio: Vastaanottokäynti on suositeltava",
-        "prio_text_lt1w": "Ilmoittamasi oireet ja esitiedot vastaavat tilan {cond} ({top} %) tyypillisiä piirteitä. Suosittelemme kääntymään rauhallisin mielin terveydenhuollon ammattilaisen puoleen tarkempaa arviota varten.",
-        "prio_text_1_3w": "Ilmoittamasi oireet ja esitiedot vastaavat tilan {cond} ({top} %) tyypillisiä piirteitä ja oireisto on jatkunut 1–3 viikkoa. Suosittelemme varaamaan vastaanottoajan tutkittavaksi lähiaikoina.",
-        "prio_text_gt3w": "Ilmoittamasi oireet ja esitiedot vastaavat tilan {cond} ({top} %) tyypillisiä piirteitä ja oireisto on jatkunut yli 3 viikkoa. Pitkittyneen oireilun vuoksi tarkempi selvittely vastaanotolla on erityisen suositeltavaa.",
+        "prio_title": "Tarkempi tutkimus vastaanotolla on suositeltava",
+        "prio_text_lt1w": "Oirekuvaasi ja esitietojasi vastaa lähimmin {cond} (vastaavuus {top} %). Suosittelemme ottamaan yhteyttä terveydenhuoltoon tarkempaa arviota ja mahdollisia jatkotutkimuksia varten.",
+        "prio_text_1_3w": "Oirekuvaasi ja esitietojasi vastaa lähimmin {cond} (vastaavuus {top} %), ja oireilu on jatkunut 1–3 viikkoa. Suosittelemme varaamaan vastaanottoajan tutkittavaksi lähiaikoina.",
+        "prio_text_gt3w": "Oirekuvaasi ja esitietojasi vastaa lähimmin {cond} (vastaavuus {top} %), ja oireisto on jatkunut yli kolme viikkoa. Suosittelemme hakeutumaan vastaanotolle jatkotutkimuksiin ilman tarpeetonta viivettä.",
 
-        "dur_note_1_3w_calm": "Kestohuomio (1–3 viikkoa): Vaikka ensiarvio on rauhallinen, oireilu on kestänyt jo yli viikon. Mikäli oireet jatkuvat vielä, suositellaan menemään tarkastukseen.",
-        "dur_note_gt3w_calm": "Kestohuomio (> 3 viikkoa): Pitkittyneessä yli kolmen viikon oireilussa suositellaan hyvälläkin arviolla menemään tarkastukseen vastaanotolle, mikäli vaiva jatkuu vielä.",
-        "dur_note_gt3w_visit": "Pitkittynyt kesto (> 3 viikkoa): Yli kolme viikkoa kestäneet oireet on suositeltavaa selvittää vastaanotolla ilman turhaa viivettä.",
-        "reassurance": "Rauhallinen jatko-ohje: Hoidon automaattinen ensiarvio ei ole lääketieteellinen diagnoosi, vaan apuväline hoidon tarpeen arviointiin. Ota tämä yhteenveto mukaan vastaanotolle.",
-        "geriatric": "Ikäryhmä ≥ 70 v huomioitu: mahdollisen jatkolähetteen yhteydessä suositellaan yleisen toimintakyvyn ja ravitsemustilan kevyttä kartoitusta (G8-arvio) yksilöllisen hoidon tueksi.",
+        "reassurance": "Huomioithan, että palvelu arvioi hoidon tarvetta alustavasti eikä korvaa lääkärin tekemää diagnoosia.",
+        "geriatric": "Ikäryhmän (yli 70 v) lisähuomio: mahdollisen jatkolähetteen yhteydessä on suositeltavaa kartoittaa myös yleinen toimintakyky ja ravitsemustila (G8-kartoitus) yksilöllisen hoidon suunnittelun tueksi.",
         "pediatric_spec": "Lastentaudit / Yleislääketiede",
         "general_spec": "Yleislääketiede",
-        "rationale": "Hoidon automaattinen ensiarvio huomioi ilmoitetut tekijät ({factors}) ja arvioi vahvimmaksi vastaavuudeksi tilan {cond} (ICD-10: {icd10}).",
-        "default_factor": "Ikä- ja esitietoprofiili",
+        "rationale": "Arviossa painottuivat ilmoittamasi tekijät ({factors}). Näiden perusteella lähin vastaavuus on {cond} (ICD-10: {icd10}).",
+        "default_factor": "ikä- ja esitietoprofiili",
     },
     "sv": {
-        "no_sym_badge": "God hälsa • Inga valda symtom",
-        "no_sym_title": "Automatiserad första vårdbedömning: Inget aktuellt vårdbehov",
-        "no_sym_text_short": "Du har inte valt några pågående symtom, så bedömningen visar inget omedelbart vårdbehov.",
-        "no_sym_text_long": "Du har inte valt några pågående symtom. Om du ändå har haft besvär i flera veckor, välj symtomet i listan eller uppsök vården för kontroll om besvären fortsätter.",
-        "no_sym_spec": "Inget vårdbehov (normal egenuppföljning)",
-        "no_sym_rat": "Välj ett eller flera symtom för att få en automatiserad första vårdbedömning.",
+        "no_sym_badge": "Inga valda symtom",
+        "no_sym_title": "Inget konstaterat vårdbehov",
+        "no_sym_text_short": "Du har inte valt några nuvarande symtom, och utifrån de angivna uppgifterna finns inget omedelbart vårdbehov.",
+        "no_sym_text_long": "Du har inte valt några nuvarande symtom. Om du ändå har haft långvariga besvär, välj symtomen i listan eller boka tid för kontroll på mottagning om besvären fortsätter.",
+        "no_sym_spec": "Inget vårdbehov",
+        "no_sym_rat": "Välj ett eller flera symtom så bedömer tjänsten vårdbehovet utifrån din symtombild.",
 
-        "below_badge": "Inget omedelbart behov av mottagningsbesök",
-        "below_badge_long": "Låg överensstämmelse • Beakta lång varaktighet",
-        "below_title": "Automatiserad första vårdbedömning: Symtombilden ligger under tröskelvärdet",
-        "below_text": "Inget enskilt tillstånd överskred det valda tröskelvärdet ({thr} %; högsta överensstämmelse {top} % för {cond}).",
-        "below_tail_lt1w": " Symtomen har pågått i mindre än en vecka, så du kan lugnt följa måendet hemma och kontakta vården om symtomen tilltar.",
-        "below_tail_1_3w": " Eftersom symtomen har pågått i 1–3 veckor rekommenderas ändå en kontroll på mottagning om besvären fortsätter.",
-        "below_tail_gt3w": " Eftersom symtomen har pågått i över 3 veckor rekommenderas även vid en lugn bedömning att gå på kontroll om besvären fortsätter.",
-        "below_spec": "Egenvård och uppföljning hemma",
-        "below_spec_long": "Uppföljning (vid behov Allmänmedicin)",
+        "below_badge": "Egenuppföljning hemma räcker",
+        "below_badge_long": "Låg överensstämmelse • Långvariga besvär",
+        "below_title": "Inget omedelbart behov av mottagningsbesök",
+        "below_text": "Dina angivna symtom pekar inte tydligt på något enskilt tillstånd (närmaste överensstämmelse {top} %: {cond}).",
+        "below_tail_lt1w": " Eftersom symtomen har varat i mindre än en vecka kan du följa måendet hemma och kontakta vården om besvären förvärras.",
+        "below_tail_1_3w": " Besvären har dock pågått i 1–3 veckor, så vi rekommenderar en kontroll om symtomen inte snart klingar av.",
+        "below_tail_gt3w": " Eftersom besvären har pågått i över tre veckor är det motiverat att låta undersöka orsaken på mottagning om symtomen fortsätter.",
+        "below_spec": "Egenvård och uppföljning",
+        "below_spec_long": "Uppföljning / Allmänmedicin",
 
-        "self_badge": "Automatiserad första vårdbedömning: Egenvård och uppföljning",
-        "self_title": "Automatiserad första vårdbedömning: Sannolikt lindrigt besvär som läker med egenvård",
-        "self_text_lt1w": "Dina symtom stämmer bäst överens med ett lindrigt tillstånd ({cond}, {top} %), som vanligen lindras med vila och symtomatisk egenvård.",
-        "self_text_1_3w": "Dina symtom pekar främst på ett lindrigt tillstånd ({cond}, {top} %). Eftersom besvären har pågått i 1–3 veckor rekommenderas en vårdkontroll om symtomen fortsätter.",
+        "self_badge": "Egenvård och uppföljning",
+        "self_title": "Sannolikt lindrigt besvär som läker med egenvård",
+        "self_text_lt1w": "Din symtombild motsvarar närmast {cond} (överensstämmelse {top} %). Ett sådant besvär går vanligen över av sig självt inom några dagar med vila och symtomlindrande egenvård.",
+        "self_text_1_3w": "Din symtombild motsvarar närmast {cond} (överensstämmelse {top} %). Eftersom besvären har varat i 1–3 veckor rekommenderar vi en vårdkontroll om symtomen inte snart lättar.",
         "self_spec": "Egenvård (vid behov Allmänmedicin)",
 
-        "prolonged_self_badge": "Rekommendation: Kontroll vid långvariga symtom",
-        "prolonged_self_title": "Automatiserad första vårdbedömning: Långvariga symtom (> 3 veckor)",
-        "prolonged_self_text": "Symtombilden motsvarar närmast {cond} ({top} %), som vanligen är lindrigt. Eftersom symtomen har pågått i mer än tre veckor rekommenderas en kontroll på mottagning om besvären fortsätter.",
+        "prolonged_self_badge": "Rekommendation: Kontroll på grund av långvariga symtom",
+        "prolonged_self_title": "Långvariga symtom bör kontrolleras",
+        "prolonged_self_text": "Din symtombild motsvarar närmast {cond} (överensstämmelse {top} %), som vanligen är lindrigt. Eftersom symtomen har pågått i mer än tre veckor rekommenderar vi att boka tid på mottagning om besvären fortsätter.",
 
         "sched_badge": "Rekommendation: Icke-brådskande mottagningsbedömning",
-        "sched_title": "Automatiserad första vårdbedömning: Kontrollbesök rekommenderas",
-        "sched_text_lt1w": "Dina symtom stämmer väl överens med dragen för {cond} ({top} %). Vi rekommenderar att boka en icke-brådskande tid på mottagning om besvären inte avtar.",
-        "sched_text_1_3w": "Dina symtom motsvarar dragen för {cond} ({top} %) och har varat i 1–3 veckor. Vi rekommenderar att du bokar tid för kontroll på mottagning.",
-        "sched_text_gt3w": "Dina symtom motsvarar dragen för {cond} ({top} %) och har pågått i över 3 veckor. På grund av varaktigheten rekommenderas undersökning på mottagning.",
+        "sched_title": "Mottagningsbesök rekommenderas",
+        "sched_text_lt1w": "Din symtombild motsvarar närmast {cond} (överensstämmelse {top} %). Vi rekommenderar att boka en icke-brådskande tid på mottagning om besvären inte avtar.",
+        "sched_text_1_3w": "Din symtombild motsvarar närmast {cond} (överensstämmelse {top} %), och besvären har pågått i 1–3 veckor. Vi rekommenderar att du bokar tid för närmare bedömning på mottagning.",
+        "sched_text_gt3w": "Din symtombild motsvarar närmast {cond} (överensstämmelse {top} %), och besvären har pågått i över tre veckor. På grund av det utdragna förloppet rekommenderar vi undersökning på mottagning.",
 
         "prio_badge": "Rekommendation: Undersökning på mottagning",
-        "prio_title": "Automatiserad första vårdbedömning: Mottagningsbesök rekommenderas",
-        "prio_text_lt1w": "Dina symtom och bakgrundsuppgifter överensstämmer med typiska drag för {cond} ({top} %). Vi rekommenderar att du i lugn och ro kontaktar hälso- och sjukvården för närmare bedömning.",
-        "prio_text_1_3w": "Dina symtom och bakgrundsuppgifter motsvarar {cond} ({top} %) och har pågått i 1–3 veckor. Vi rekommenderar att du bokar mottagningstid för undersökning inom kort.",
-        "prio_text_gt3w": "Dina symtom och bakgrundsuppgifter motsvarar {cond} ({top} %) och har pågått i över 3 veckor. Vid långvariga besvär är fortsatt utredning på mottagning särskilt motiverad.",
+        "prio_title": "Närmare undersökning på mottagning rekommenderas",
+        "prio_text_lt1w": "Dina symtom och förhandsuppgifter motsvarar närmast {cond} (överensstämmelse {top} %). Vi rekommenderar att du kontaktar hälso- och sjukvården för bedömning och eventuell fortsatt utredning.",
+        "prio_text_1_3w": "Dina symtom och förhandsuppgifter motsvarar närmast {cond} (överensstämmelse {top} %), och besvären har varat i 1–3 veckor. Vi rekommenderar att boka mottagningstid inom kort.",
+        "prio_text_gt3w": "Dina symtom och förhandsuppgifter motsvarar närmast {cond} (överensstämmelse {top} %), och besvären har pågått i över tre veckor. Vi rekommenderar att du söker dig till mottagning för fortsatt utredning utan onödigt dröjsmål.",
 
-        "dur_note_1_3w_calm": "Varaktighet (1–3 veckor): Även om bedömningen är lugn har symtomen pågått i över en vecka. Om besvären fortsätter rekommenderas en kontroll.",
-        "dur_note_gt3w_calm": "Varaktighet (> 3 veckor): Vid symtom som varat över tre veckor rekommenderas även vid god bedömning att uppsöka mottagning för kontroll om besvären fortsätter.",
-        "dur_note_gt3w_visit": "Lång varaktighet (> 3 veckor): Symtom som pågått i över tre veckor bör utredas på mottagning utan onödig fördröjning.",
-        "reassurance": "Lugn vägledning: Den automatiserade första vårdbedömningen är inte en medicinsk diagnos, utan ett stöd för att bedöma vårdbehovet. Ta gärna med denna sammanfattning till mottagningen.",
-        "geriatric": "Åldersgrupp ≥ 70 år beaktad: vid eventuell remiss rekommenderas en lätt kartläggning av funktionsförmåga och näringstillstånd (G8-bedömning) som stöd för individuell vårdplanering.",
+        "reassurance": "Observera att tjänsten bedömer vårdbehovet preliminärt och inte ersätter en läkares diagnos.",
+        "geriatric": "Tilläggsnotering för åldersgruppen över 70 år: vid eventuell fortsatt remiss rekommenderas även en bedömning av allmän funktionsförmåga och näringstillstånd (G8-screening) som stöd för vårdplaneringen.",
         "pediatric_spec": "Pediatrik / Allmänmedicin",
         "general_spec": "Allmänmedicin",
-        "rationale": "Den automatiserade första vårdbedömningen vägde in angivna uppgifter ({factors}) och fann starkast överensstämmelse med {cond} (ICD-10: {icd10}).",
-        "default_factor": "Ålders- och bakgrundsprofil",
+        "rationale": "I bedömningen vägdes dina angivna uppgifter in ({factors}). Utifrån dessa är närmaste överensstämmelse {cond} (ICD-10: {icd10}).",
+        "default_factor": "ålders- och bakgrundsprofil",
     },
     "en": {
-        "no_sym_badge": "Feeling well • No active symptoms",
-        "no_sym_title": "Preliminary automated evaluation: No current need for care",
-        "no_sym_text_short": "You have not selected any current symptoms, so this preliminary evaluation indicates no immediate need for medical care.",
-        "no_sym_text_long": "You have not selected any active symptoms. However, if you have had a lingering concern for weeks, select the symptom from the list or schedule a check-up if it continues.",
-        "no_sym_spec": "No care needed (routine self-monitoring)",
-        "no_sym_rat": "Select one or more symptoms to generate a symptom-based preliminary automated evaluation.",
+        "no_sym_badge": "No symptoms selected",
+        "no_sym_title": "No identified need for care",
+        "no_sym_text_short": "You have not selected any current symptoms, so based on the information provided there is no immediate need for medical care.",
+        "no_sym_text_long": "You have not selected any current symptoms. If you have experienced persistent symptoms, please select them from the list or schedule a medical check-up if they continue.",
+        "no_sym_spec": "No care needed",
+        "no_sym_rat": "Select one or more symptoms so the service can evaluate the need for care based on your symptom profile.",
 
-        "below_badge": "No immediate clinic visit needed",
-        "below_badge_long": "Below match threshold • Note prolonged duration",
-        "below_title": "Preliminary automated evaluation: Symptom profile is below the match threshold",
-        "below_text": "No single evaluated condition exceeded your selected match threshold ({thr}%; highest match {top}% for {cond}).",
-        "below_tail_lt1w": " Since symptoms have lasted less than a week, you can calmly monitor how you feel at home and contact healthcare if symptoms worsen.",
-        "below_tail_1_3w": " However, since symptoms have lasted 1–3 weeks, we recommend scheduling a check-up if they continue.",
-        "below_tail_gt3w": " Because symptoms have persisted for over 3 weeks, even with a reassuring evaluation we recommend going for a medical check-up if they continue.",
+        "below_badge": "Home monitoring is sufficient",
+        "below_badge_long": "Low match • Prolonged symptoms",
+        "below_title": "No immediate clinic visit needed",
+        "below_text": "Your reported symptoms do not clearly point to any single condition (closest match {top}%: {cond}).",
+        "below_tail_lt1w": " Because symptoms have lasted less than a week, you can monitor how you feel at home and contact healthcare if symptoms worsen.",
+        "below_tail_1_3w": " However, since symptoms have lasted 1–3 weeks, we recommend scheduling a check-up if they do not improve soon.",
+        "below_tail_gt3w": " Because symptoms have persisted for over three weeks, having a clinician evaluate the cause is advisable if they continue.",
         "below_spec": "Self-care and home monitoring",
-        "below_spec_long": "Home monitoring (General Practice if persistent)",
+        "below_spec_long": "Home monitoring / General Practice",
 
-        "self_badge": "Preliminary automated evaluation: Self-care & monitoring",
-        "self_title": "Preliminary automated evaluation: Likely mild condition manageable at home",
-        "self_text_lt1w": "Your reported symptoms align best with a mild condition ({cond}, {top}%), which typically improves with rest and supportive self-care within a few days.",
-        "self_text_1_3w": "Your symptoms primarily fit a mild condition ({cond}, {top}%). Since they have lasted 1–3 weeks, we recommend going for a check-up if symptoms continue.",
+        "self_badge": "Self-care and monitoring",
+        "self_title": "Likely mild condition manageable with self-care",
+        "self_text_lt1w": "Your symptom profile aligns most closely with {cond} ({top}% match), which typically resolves on its own within a few days with rest and supportive self-care.",
+        "self_text_1_3w": "Your symptom profile aligns most closely with {cond} ({top}% match). Because symptoms have lasted 1–3 weeks, we recommend scheduling a medical check-up if they do not ease soon.",
         "self_spec": "Self-care (General Practice if needed)",
 
         "prolonged_self_badge": "Recommendation: Check-up for prolonged symptoms",
-        "prolonged_self_title": "Preliminary automated evaluation: Prolonged symptoms (> 3 weeks)",
-        "prolonged_self_text": "Your symptom pattern aligns closest with {cond} ({top}%), which is typically mild. Because symptoms have lasted over three weeks, we recommend visiting a clinic for a check-up if they continue.",
+        "prolonged_self_title": "Prolonged symptoms warrant a check-up",
+        "prolonged_self_text": "Your symptom pattern aligns most closely with {cond} ({top}% match), which is usually mild. Because symptoms have persisted for more than three weeks, we recommend booking a clinic check-up if they continue.",
 
         "sched_badge": "Recommendation: Non-urgent clinic evaluation",
-        "sched_title": "Preliminary automated evaluation: A clinic check-up is recommended",
-        "sched_text_lt1w": "Your reported symptoms match the typical profile of {cond} ({top}%). We recommend scheduling a non-urgent appointment if symptoms do not begin to ease.",
-        "sched_text_1_3w": "Your symptoms match the profile of {cond} ({top}%) and have lasted 1–3 weeks. We recommend booking an appointment for a medical check-up.",
-        "sched_text_gt3w": "Your symptoms match {cond} ({top}%) and have persisted for over 3 weeks. Given the prolonged duration, an in-person clinical evaluation is recommended.",
+        "sched_title": "A clinic appointment is recommended",
+        "sched_text_lt1w": "Your symptom profile aligns most closely with {cond} ({top}% match). We recommend booking a non-urgent appointment if symptoms do not begin to ease.",
+        "sched_text_1_3w": "Your symptom profile aligns most closely with {cond} ({top}% match) and symptoms have lasted 1–3 weeks. We recommend scheduling an appointment for further evaluation.",
+        "sched_text_gt3w": "Your symptom profile aligns most closely with {cond} ({top}% match) and symptoms have persisted for over three weeks. Given the prolonged course, an in-person clinical evaluation is recommended.",
 
-        "prio_badge": "Recommendation: Clinical evaluation advised",
-        "prio_title": "Preliminary automated evaluation: Visiting a clinic for examination is advised",
-        "prio_text_lt1w": "Your symptoms and background align with characteristic features of {cond} ({top}%). We calmly recommend contacting a healthcare professional for a clinical assessment.",
-        "prio_text_1_3w": "Your symptoms and background align with {cond} ({top}%) and have lasted 1–3 weeks. We recommend scheduling a clinic examination in the near future.",
-        "prio_text_gt3w": "Your symptoms and background align with {cond} ({top}%) and have persisted for over 3 weeks. Due to the prolonged duration, a timely diagnostic check-up is strongly advised.",
+        "prio_badge": "Recommendation: Clinical examination advised",
+        "prio_title": "Further clinical examination is recommended",
+        "prio_text_lt1w": "Your symptoms and medical history align most closely with {cond} ({top}% match). We recommend contacting a healthcare professional for clinical evaluation and any needed diagnostic tests.",
+        "prio_text_1_3w": "Your symptoms and medical history align most closely with {cond} ({top}% match), and symptoms have lasted 1–3 weeks. We recommend scheduling a clinic examination in the near future.",
+        "prio_text_gt3w": "Your symptoms and medical history align most closely with {cond} ({top}% match), and symptoms have persisted for over three weeks. Timely clinical evaluation is recommended without unnecessary delay.",
 
-        "dur_note_1_3w_calm": "Duration note (1–3 weeks): Even though the initial evaluation is reassuring, your symptoms have lasted over a week. If they continue, going for a check-up is recommended.",
-        "dur_note_gt3w_calm": "Duration note (> 3 weeks): When symptoms have lasted over three weeks, even with a good initial evaluation, a medical check-up is recommended if they continue.",
-        "dur_note_gt3w_visit": "Prolonged duration (> 3 weeks): Symptoms lasting longer than three weeks warrant clinical evaluation without unnecessary delay.",
-        "reassurance": "Calm next steps: A preliminary automated evaluation is not a medical diagnosis, but an aid to assess your need for care. Bring this summary to your appointment.",
-        "geriatric": "Age group ≥ 70 noted: alongside any specialist referral, a brief functional and nutritional check (G8 screening) is recommended to support individualized care.",
+        "reassurance": "Please note that this service evaluates the need for care on a preliminary basis and does not replace a physician's diagnosis.",
+        "geriatric": "Additional note for ages 70+: alongside any specialist referral, brief functional and nutritional screening (G8 assessment) is recommended to support individualized care planning.",
         "pediatric_spec": "Pediatrics / General Practice",
         "general_spec": "General Practice",
-        "rationale": "The preliminary automated evaluation weighed your reported factors ({factors}) and identified {cond} (ICD-10: {icd10}) as the closest match.",
-        "default_factor": "Age and background profile",
+        "rationale": "The assessment weighed your reported factors ({factors}), which align most closely with {cond} (ICD-10: {icd10}).",
+        "default_factor": "age and background profile",
     },
 }
 
@@ -498,15 +509,10 @@ def evaluate_prediction(req: PredictRequest) -> dict[str, Any]:
     label_key = f"label_{lang}"
 
     probs = compute_probabilities(req)
-    threshold = float(req.threshold)
+    threshold = float(req.threshold) if req.threshold is not None else float(_ACTIVE_THRESHOLD)
 
     if not req.symptoms:
         long_dur = req.duration in ("1-3w", ">3w")
-        dur_note = None
-        if req.duration == "1-3w":
-            dur_note = c["dur_note_1_3w_calm"]
-        elif req.duration == ">3w":
-            dur_note = c["dur_note_gt3w_calm"]
         return {
             "lang": lang,
             "threshold": threshold,
@@ -516,8 +522,7 @@ def evaluate_prediction(req: PredictRequest) -> dict[str, Any]:
             "urgency_badge": c["no_sym_badge"],
             "urgency_title": c["no_sym_title"],
             "urgency_text": c["no_sym_text_long"] if long_dur else c["no_sym_text_short"],
-            "duration_note": dur_note,
-            "reassurance_note": None,
+            "reassurance_note": c["reassurance"],
             "geriatric_note": None,
             "recommended_specialty": c["no_sym_spec"],
             "exclusion_specialty": None,
@@ -550,6 +555,7 @@ def evaluate_prediction(req: PredictRequest) -> dict[str, Any]:
     top_prob = top1["probability"]
     top_pct = round(top_prob * 100)
     thr_pct = round(threshold * 100)
+    cond_prose = _prose_term(top1["name"])
 
     notable_chosen = [
         s[label_key]
@@ -573,14 +579,12 @@ def evaluate_prediction(req: PredictRequest) -> dict[str, Any]:
             exclusion_specialty = cand["specialty"]
             break
 
-    duration_note: str | None = None
-
-    # 1. Threshold check: directly governed by `threshold` so adjusting threshold always takes effect
+    # 1. Below clinician-configured match threshold
     if top_prob < threshold:
         seek_care = False
         urgency_tier = "below_threshold"
         urgency_title = c["below_title"]
-        base_msg = c["below_text"].format(thr=thr_pct, top=top_pct, cond=top1["name"])
+        base_msg = c["below_text"].format(thr=thr_pct, top=top_pct, cond=cond_prose)
         if req.duration == "<1w":
             urgency_badge = c["below_badge"]
             urgency_text = base_msg + c["below_tail_lt1w"]
@@ -588,47 +592,41 @@ def evaluate_prediction(req: PredictRequest) -> dict[str, Any]:
         elif req.duration == "1-3w":
             urgency_badge = c["below_badge"]
             urgency_text = base_msg + c["below_tail_1_3w"]
-            duration_note = c["dur_note_1_3w_calm"]
             recommended_specialty = c["below_spec_long"]
-        else:  # ">3w"
+        else:
             urgency_badge = c["below_badge_long"]
             urgency_text = base_msg + c["below_tail_gt3w"]
-            duration_note = c["dur_note_gt3w_calm"]
             recommended_specialty = c["below_spec_long"]
 
-    # 2. Mild / self-care condition above threshold: duration controls escalation cleanly
+    # 2. Mild / self-care condition above threshold
     elif not top1["requires_doctor"] and not notable_chosen:
         if req.duration == "<1w":
             seek_care = False
             urgency_tier = "self_care"
             urgency_badge = c["self_badge"]
             urgency_title = c["self_title"]
-            urgency_text = c["self_text_lt1w"].format(cond=top1["name"], top=top_pct)
+            urgency_text = c["self_text_lt1w"].format(cond=cond_prose, top=top_pct)
             recommended_specialty = c["self_spec"]
         elif req.duration == "1-3w":
             seek_care = False
             urgency_tier = "self_care"
             urgency_badge = c["self_badge"]
             urgency_title = c["self_title"]
-            urgency_text = c["self_text_1_3w"].format(cond=top1["name"], top=top_pct)
-            duration_note = c["dur_note_1_3w_calm"]
+            urgency_text = c["self_text_1_3w"].format(cond=cond_prose, top=top_pct)
             recommended_specialty = c["self_spec"]
-        else:  # ">3w" -> prolonged mild symptoms escalate to non-urgent check-up recommendation
+        else:
             seek_care = True
             urgency_tier = "scheduled_visit"
             urgency_badge = c["prolonged_self_badge"]
             urgency_title = c["prolonged_self_title"]
-            urgency_text = c["prolonged_self_text"].format(cond=top1["name"], top=top_pct)
-            duration_note = c["dur_note_gt3w_calm"]
+            urgency_text = c["prolonged_self_text"].format(cond=cond_prose, top=top_pct)
             recommended_specialty = c["general_spec"]
 
-    # 3. Clinic evaluation recommended (above threshold & requires doctor or notable symptom)
+    # 3. Clinic evaluation recommended
     else:
         seek_care = True
         recommended_specialty = top1["specialty"]
-        if req.age_band == "0-17" and (
-            "Yleislääketiede" in top1["specialty_fi"]
-        ):
+        if req.age_band == "0-17" and "Yleislääketiede" in top1["specialty_fi"]:
             recommended_specialty = c["pediatric_spec"]
 
         is_priority = (
@@ -642,32 +640,31 @@ def evaluate_prediction(req: PredictRequest) -> dict[str, Any]:
             urgency_badge = c["prio_badge"]
             urgency_title = c["prio_title"]
             if req.duration == "<1w":
-                urgency_text = c["prio_text_lt1w"].format(cond=top1["name"], top=top_pct)
+                urgency_text = c["prio_text_lt1w"].format(cond=cond_prose, top=top_pct)
             elif req.duration == "1-3w":
-                urgency_text = c["prio_text_1_3w"].format(cond=top1["name"], top=top_pct)
+                urgency_text = c["prio_text_1_3w"].format(cond=cond_prose, top=top_pct)
             else:
-                urgency_text = c["prio_text_gt3w"].format(cond=top1["name"], top=top_pct)
-                duration_note = c["dur_note_gt3w_visit"]
+                urgency_text = c["prio_text_gt3w"].format(cond=cond_prose, top=top_pct)
         else:
             urgency_tier = "scheduled_visit"
             urgency_badge = c["sched_badge"]
             urgency_title = c["sched_title"]
             if req.duration == "<1w":
-                urgency_text = c["sched_text_lt1w"].format(cond=top1["name"], top=top_pct)
+                urgency_text = c["sched_text_lt1w"].format(cond=cond_prose, top=top_pct)
             elif req.duration == "1-3w":
-                urgency_text = c["sched_text_1_3w"].format(cond=top1["name"], top=top_pct)
+                urgency_text = c["sched_text_1_3w"].format(cond=cond_prose, top=top_pct)
             else:
-                urgency_text = c["sched_text_gt3w"].format(cond=top1["name"], top=top_pct)
-                duration_note = c["dur_note_gt3w_visit"]
+                urgency_text = c["sched_text_gt3w"].format(cond=cond_prose, top=top_pct)
 
     geriatric_note = None
     if req.age_band in ("70-79", "80+") and seek_care:
         geriatric_note = c["geriatric"]
 
-    factors = (chosen_ant_labels[:2] + chosen_symptom_labels[:3]) or [c["default_factor"]]
+    raw_factors = chosen_ant_labels[:2] + chosen_symptom_labels[:3]
+    factors = [_prose_term(f) for f in raw_factors] if raw_factors else [c["default_factor"]]
     rationale = c["rationale"].format(
         factors=", ".join(factors),
-        cond=top1["name"],
+        cond=cond_prose,
         icd10=top1["icd10"],
     )
 
@@ -680,8 +677,7 @@ def evaluate_prediction(req: PredictRequest) -> dict[str, Any]:
         "urgency_badge": urgency_badge,
         "urgency_title": urgency_title,
         "urgency_text": urgency_text,
-        "duration_note": duration_note,
-        "reassurance_note": c["reassurance"] if seek_care else None,
+        "reassurance_note": c["reassurance"],
         "geriatric_note": geriatric_note,
         "recommended_specialty": recommended_specialty,
         "exclusion_specialty": exclusion_specialty,
@@ -692,7 +688,7 @@ def evaluate_prediction(req: PredictRequest) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# Regional 24h / 48h persistence & multilingual aggregation
+# Regional 24h / 48h persistence & clinician-configurable threshold stats
 # ---------------------------------------------------------------------------
 
 def _get_conn() -> sqlite3.Connection:
@@ -750,47 +746,40 @@ def _seed_if_empty() -> None:
             return
         now = time.time()
         seed_cases: list[tuple[float, PredictRequest]] = [
-            # Helsinki: hengitystiet, astma ja keuhkojen jatkoselvittely
             (now - 42 * 3600, PredictRequest(municipality="Helsinki", age_band="30-39", sex="F", duration="<1w", antecedents=["ant_sick_contact"], symptoms=["sym_nasal", "sym_sore_throat", "sym_cough"])),
             (now - 34 * 3600, PredictRequest(municipality="Helsinki", age_band="40-49", sex="M", duration="1-3w", antecedents=["ant_asthma"], symptoms=["sym_cough", "sym_dyspnea", "sym_wheeze"])),
-            (now - 20 * 3600, PredictRequest(municipality="Helsinki", age_band="20-29" if False else "18-29", sex="F", duration="<1w", antecedents=["ant_sick_contact"], symptoms=["sym_nasal", "sym_sore_throat", "sym_cough", "sym_fever"])),
+            (now - 20 * 3600, PredictRequest(municipality="Helsinki", age_band="18-29", sex="F", duration="<1w", antecedents=["ant_sick_contact"], symptoms=["sym_nasal", "sym_sore_throat", "sym_cough", "sym_fever"])),
             (now - 16 * 3600, PredictRequest(municipality="Helsinki", age_band="30-39", sex="M", duration="<1w", antecedents=["ant_sick_contact"], symptoms=["sym_cough", "sym_fever", "sym_muscle_ache"])),
             (now - 11 * 3600, PredictRequest(municipality="Helsinki", age_band="60-69", sex="F", duration=">3w", antecedents=["ant_former_smoker", "ant_fam_lung_cancer"], symptoms=["sym_cough", "sym_weight_loss", "sym_appetite_loss", "sym_fatigue_pallor", "sym_pain"], pain=PainDetails(intensity=4, onset=2, location="chest_side", character="dull", radiation="none"))),
             (now - 5 * 3600, PredictRequest(municipality="Helsinki", age_band="30-39", sex="F", duration="1-3w", antecedents=["ant_asthma", "ant_fam_asthma_allergy"], symptoms=["sym_cough", "sym_dyspnea", "sym_wheeze"])),
             (now - 2 * 3600, PredictRequest(municipality="Helsinki", age_band="50-59", sex="M", duration="1-3w", antecedents=["ant_hypertension", "ant_smoking"], symptoms=["sym_pain", "sym_exertion", "sym_dyspnea"], pain=PainDetails(intensity=6, onset=6, location="chest_center", character="pressing", radiation="arm_shoulder"))),
 
-            # Tampere: keuhkoselvittelyt & pitkittynyt yskä
             (now - 39 * 3600, PredictRequest(municipality="Tampere", age_band="50-59", sex="M", duration="1-3w", antecedents=["ant_smoking"], symptoms=["sym_cough", "sym_sputum"])),
             (now - 19 * 3600, PredictRequest(municipality="Tampere", age_band="70-79", sex="M", duration=">3w", antecedents=["ant_smoking", "ant_fam_lung_cancer"], symptoms=["sym_cough", "sym_hemoptysis", "sym_weight_loss", "sym_appetite_loss", "sym_dyspnea", "sym_fatigue_pallor"])),
             (now - 13 * 3600, PredictRequest(municipality="Tampere", age_band="60-69", sex="F", duration=">3w", antecedents=["ant_copd", "ant_smoking"], symptoms=["sym_cough", "sym_sputum", "sym_dyspnea", "sym_wheeze"])),
             (now - 7 * 3600, PredictRequest(municipality="Tampere", age_band="50-59", sex="F", duration=">3w", antecedents=["ant_fam_lung_cancer", "ant_secondhand_smoke"], symptoms=["sym_cough", "sym_hemoptysis", "sym_weight_loss", "sym_appetite_loss", "sym_pain"], pain=PainDetails(intensity=4, onset=2, location="chest_center", character="dull", radiation="back_scapula"))),
             (now - 3 * 3600, PredictRequest(municipality="Tampere", age_band="40-49", sex="M", duration="<1w", antecedents=["ant_sick_contact"], symptoms=["sym_cough", "sym_fever", "sym_sore_throat"])),
 
-            # Turku: ylävatsa, painonlasku ja gastroenterologia
             (now - 36 * 3600, PredictRequest(municipality="Turku", age_band="40-49", sex="F", duration="<1w", antecedents=["ant_gerd", "ant_overweight"], symptoms=["sym_heartburn"])),
             (now - 18 * 3600, PredictRequest(municipality="Turku", age_band="60-69", sex="M", duration=">3w", antecedents=["ant_diabetes", "ant_smoking", "ant_fam_panc_cancer"], symptoms=["sym_weight_loss", "sym_pale_stool_dark_urine", "sym_nausea_diarrhea", "sym_fatigue_pallor", "sym_pain"], pain=PainDetails(intensity=5, onset=2, location="epigastric", character="cramp_tug", radiation="back_scapula"))),
             (now - 9 * 3600, PredictRequest(municipality="Turku", age_band="70-79", sex="F", duration=">3w", antecedents=["ant_pancreatitis", "ant_fam_panc_cancer"], symptoms=["sym_weight_loss", "sym_appetite_loss", "sym_pale_stool_dark_urine", "sym_rash", "sym_pain"], pain=PainDetails(intensity=6, onset=2, location="epigastric", character="dull", radiation="back_scapula"), rash=RashDetails(color="yellow", itch=6, swollen=False))),
             (now - 4 * 3600, PredictRequest(municipality="Turku", age_band="50-59", sex="M", duration="1-3w", antecedents=["ant_gerd"], symptoms=["sym_heartburn", "sym_pain"], pain=PainDetails(intensity=4, onset=4, location="chest_lower", character="burning", radiation="upper_chest"))),
 
-            # Oulu: infektiot & korva/hengitystiet
             (now - 30 * 3600, PredictRequest(municipality="Oulu", age_band="18-29", sex="F", duration="<1w", antecedents=["ant_allergy"], symptoms=["sym_nasal", "sym_itchy_nose_eyes"])),
             (now - 15 * 3600, PredictRequest(municipality="Oulu", age_band="0-17", sex="M", duration="<1w", antecedents=["ant_recent_viral"], symptoms=["sym_fever", "sym_cough", "sym_pain"], pain=PainDetails(intensity=6, onset=6, location="ear", character="throbbing", radiation="none"))),
             (now - 10 * 3600, PredictRequest(municipality="Oulu", age_band="30-39", sex="F", duration="<1w", antecedents=["ant_sick_contact"], symptoms=["sym_fever", "sym_muscle_ache", "sym_cough", "sym_sore_throat"])),
             (now - 4 * 3600, PredictRequest(municipality="Oulu", age_band="40-49", sex="M", duration="1-3w", antecedents=["ant_sick_contact"], symptoms=["sym_fever", "sym_cough", "sym_sputum", "sym_dyspnea"])),
 
-            # Espoo
             (now - 28 * 3600, PredictRequest(municipality="Espoo", age_band="30-39", sex="F", duration="<1w", antecedents=["ant_allergy"], symptoms=["sym_nasal", "sym_itchy_nose_eyes"])),
             (now - 12 * 3600, PredictRequest(municipality="Espoo", age_band="40-49", sex="F", duration="1-3w", antecedents=["ant_anemia_hist"], symptoms=["sym_fatigue_pallor", "sym_dizzy_syncope", "sym_dyspnea"])),
             (now - 6 * 3600, PredictRequest(municipality="Espoo", age_band="70-79", sex="F", duration=">3w", antecedents=["ant_anemia_hist"], symptoms=["sym_fatigue_pallor", "sym_weight_loss", "sym_dyspnea", "sym_dizzy_syncope"])),
 
-            # Kuopio
             (now - 31 * 3600, PredictRequest(municipality="Kuopio", age_band="60-69", sex="M", duration="1-3w", antecedents=["ant_cardiac", "ant_hypertension"], symptoms=["sym_dyspnea", "sym_orthopnea", "sym_swelling"], swelling=SwellingDetails(location="ankles"))),
             (now - 14 * 3600, PredictRequest(municipality="Kuopio", age_band="70-79", sex="F", duration="1-3w", antecedents=["ant_hypertension"], symptoms=["sym_palpitations", "sym_dyspnea", "sym_dizzy_syncope"])),
             (now - 3 * 3600, PredictRequest(municipality="Kuopio", age_band="60-69", sex="M", duration="1-3w", antecedents=["ant_cardiac"], symptoms=["sym_palpitations", "sym_pain", "sym_exertion"], pain=PainDetails(intensity=6, onset=6, location="chest_center", character="pressing", radiation="jaw_neck"))),
 
-            # Jyväskylä & Rovaniemi
             (now - 27 * 3600, PredictRequest(municipality="Jyväskylä", age_band="18-29", sex="F", duration="<1w", antecedents=["ant_anxiety", "ant_caffeine_stim"], symptoms=["sym_palpitations", "sym_dyspnea", "sym_sweating"])),
-            (now - 8 * 3600, PredictRequest(municipality="Jyväskylä", age_band="30-39", sex="M", duration="1-3w", antecedents=[], symptoms=["sym_pain"], pain=PainDetails(intensity=8, onset=8, location="head_sinus", character="stabbing" if False else "sharp", radiation="none"))),
+            (now - 8 * 3600, PredictRequest(municipality="Jyväskylä", age_band="30-39", sex="M", duration="1-3w", antecedents=[], symptoms=["sym_pain"], pain=PainDetails(intensity=8, onset=8, location="head_sinus", character="sharp", radiation="none"))),
             (now - 6 * 3600, PredictRequest(municipality="Rovaniemi", age_band="50-59", sex="F", duration="1-3w", antecedents=["ant_recent_surgery_immob"], symptoms=["sym_dyspnea", "sym_pleuritic", "sym_swelling"], pain=PainDetails(intensity=6, onset=8, location="chest_side", character="sharp", radiation="none"), swelling=SwellingDetails(location="calf"))),
         ]
 
@@ -856,6 +845,7 @@ def serve_index():
 @app.get("/api/catalog")
 def get_catalog():
     return {
+        "active_threshold": _ACTIVE_THRESHOLD,
         "municipalities": MUNICIPALITIES,
         "age_bands": AGE_BANDS_UI,
         "travel_regions": TRAVEL_REGIONS_UI,
@@ -879,15 +869,7 @@ def post_predict(req: PredictRequest):
 def post_submission(req: PredictRequest):
     res = evaluate_prediction(req)
     if not res["top3"]:
-        err_by_lang = {
-            "fi": "Valitse vähintään yksi oire ennen tallennusta.",
-            "sv": "Välj minst ett symtom innan du skickar in.",
-            "en": "Please select at least one symptom before submitting.",
-        }
-        return JSONResponse(
-            {"saved": False, "error": err_by_lang[_norm_lang(req.lang)]},
-            status_code=400,
-        )
+        return {"saved": True, "id": None, "municipality": req.municipality, "prediction": res}
     top = res["top3"][0]
     sym_label_fi = {s["id"]: s["label_fi"] for s in SYMPTOMS_UI}
     sym_names_fi = [sym_label_fi.get(sid, sid) for sid in req.symptoms]
@@ -908,7 +890,7 @@ def post_submission(req: PredictRequest):
                 req.municipality,
                 m_meta["county_fi"],
                 req.age_band,
-                req.sex,
+                "M" if req.sex == "M" else "F",
                 req.duration,
                 json.dumps(sym_names_fi, ensure_ascii=False),
                 json.dumps(req.symptoms, ensure_ascii=False),
@@ -929,7 +911,15 @@ def post_submission(req: PredictRequest):
 
 
 @app.get("/api/municipal-stats")
-def get_municipal_stats(lang: str = Query(default="fi")):
+def get_municipal_stats(
+    lang: str = Query(default="fi"),
+    threshold: float | None = Query(default=None, ge=0.05, le=0.85),
+):
+    global _ACTIVE_THRESHOLD
+    if threshold is not None:
+        _ACTIVE_THRESHOLD = float(threshold)
+    thr = _ACTIVE_THRESHOLD
+
     lang = _norm_lang(lang)
     name_key = f"name_{lang}"
     spec_key = f"specialty_{lang}"
@@ -937,6 +927,7 @@ def get_municipal_stats(lang: str = Query(default="fi")):
     county_key = f"county_{lang}"
 
     sym_by_id = {s["id"]: s[sym_key] for s in SYMPTOMS_UI}
+    notable_ids = {s["id"] for s in SYMPTOMS_UI if s.get("notable")}
     sym_fi_to_lang = {s["label_fi"]: s[sym_key] for s in SYMPTOMS_UI}
 
     now = time.time()
@@ -984,7 +975,6 @@ def get_municipal_stats(lang: str = Query(default="fi")):
             },
         )
 
-        # Resolve symptom labels in requested language
         sym_ids = json.loads(r["symptom_ids_json"] or "[]")
         if sym_ids:
             syms = [sym_by_id.get(sid, sid) for sid in sym_ids]
@@ -992,22 +982,32 @@ def get_municipal_stats(lang: str = Query(default="fi")):
             raw_fi = json.loads(r["symptoms_json"] or "[]")
             syms = [sym_fi_to_lang.get(lbl, lbl) for lbl in raw_fi]
 
-        # Resolve condition & specialty in requested language
         eng = r["top_pathology_en"]
         cond_meta = CONDITIONS_49.get(eng)
         eval_label = cond_meta[name_key] if cond_meta else r["top_pathology_fi"]
         spec_label = cond_meta[spec_key] if cond_meta else r["specialty_fi"]
 
+        # Re-evaluate clinic recommendation dynamically against clinician-set threshold
+        row_prob = float(r["top_prob"])
+        has_notable = any(sid in notable_ids for sid in sym_ids)
+        if row_prob < thr:
+            row_seek_care = False
+        elif cond_meta and not cond_meta["requires_doctor"] and not has_notable:
+            row_seek_care = r["duration"] == ">3w"
+        else:
+            row_seek_care = True
+
         if is_curr:
             total_24h += 1
             b["count_24h"] += 1
-            if r["seek_care"]:
+            if row_seek_care:
                 seek_care_24h += 1
                 b["seek_care_24h"] += 1
             if not r["is_seed"]:
                 b["live_user_count"] += 1
-            b["eval_counts"][eval_label] = b["eval_counts"].get(eval_label, 0) + 1
-            b["specialty_counts"][spec_label] = b["specialty_counts"].get(spec_label, 0) + 1
+            if row_prob >= thr:
+                b["eval_counts"][eval_label] = b["eval_counts"].get(eval_label, 0) + 1
+                b["specialty_counts"][spec_label] = b["specialty_counts"].get(spec_label, 0) + 1
             for s in syms:
                 b["sym_curr"][s] = b["sym_curr"].get(s, 0) + 1
                 global_sym_curr[s] = global_sym_curr.get(s, 0) + 1
@@ -1080,6 +1080,7 @@ def get_municipal_stats(lang: str = Query(default="fi")):
 
     return {
         "lang": lang,
+        "threshold": thr,
         "summary": {
             "total_24h": total_24h,
             "total_prev_24h": total_prev_24h,
