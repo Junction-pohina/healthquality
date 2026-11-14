@@ -59,10 +59,24 @@ Avoid committing straight to `main`, so that teammates working in parallel don't
 
 ```
 .
-├── Materials/     # Challenge background documents (PDFs)
+├── data/              # DDXPlus CSVs and JSON files (git-ignored, never committed)
+├── Materials/         # Challenge background documents (PDFs)
+├── notebooks/         # Exploratory analysis only
+├── src/               # Project code
+│   ├── __init__.py
+│   ├── data.py        # Load patient CSVs, parse EVIDENCES, build labels
+│   ├── features.py    # Convert evidences into multi-hot feature vectors
+│   ├── models.py      # Model definitions
+│   ├── train.py       # Training entry point
+│   └── evaluate.py    # Metrics on validation and test sets
+├── tests/             # Unit tests
+├── .env.example       # Template for environment variables
 ├── .gitignore
+├── requirements.txt   # Python dependencies
 └── README.md
 ```
+
+Put dataset files in `data/`. Keep notebooks for exploration; move reusable code into `src/`.
 
 Update this section as code is added.
 

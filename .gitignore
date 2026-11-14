@@ -230,3 +230,8 @@ Materials/
 
 #Data
 data/
+
+#idea
+.idea/
+# PyCharm project settings
+.idea/
