@@ -48,6 +48,7 @@ DB_PATH = DATA_DIR / "submissions.db"
 
 SUPPORTED_LANGS = ("fi", "sv", "en")
 _ACTIVE_THRESHOLD: float = 0.25
+_ACTIVE_MAX_SYMPTOMS: int = 6
 
 app = FastAPI(title="HealthQuality API", version="0.4.0")
 app.add_middleware(
@@ -61,7 +62,7 @@ if WEB_DIR.exists():
 
 
 def _norm_lang(lang: str | None) -> str:
-    if lang and lang.lower() in SUPPORTED_LANGS:
+    if isinstance(lang, str) and lang.lower() in SUPPORTED_LANGS:
         return lang.lower()
     return "fi"
 
@@ -129,6 +130,7 @@ class PredictRequest(BaseModel):
     rash: RashDetails | None = None
     logit_adjust: bool = False
     threshold: float | None = Field(default=None, ge=0.05, le=0.85)
+    max_symptoms: int | None = Field(default=None, ge=1, le=35)
 
 
 # ---------------------------------------------------------------------------
@@ -403,6 +405,13 @@ _COPY: dict[str, dict[str, str]] = {
         "general_spec": "Yleislääketiede",
         "rationale": "Arviossa painottuivat ilmoittamasi tekijät ({factors}). Näiden perusteella lähin vastaavuus on {cond} (ICD-10: {icd10}).",
         "default_factor": "ikä- ja esitietoprofiili",
+        "multisym_badge": "Suositus: Terveydenhuollon ammattilaisen arvio",
+        "multisym_title": "Suosittelemme hakeutumaan terveydenhuollon ammattilaisen arvioitavaksi",
+        "multisym_text": "Olet valinnut {count} samanaikaista oiretta, mikä ylittää automatisoidulle ensiarviolle asetetun rajan ({limit_str}). Monioireisessa tilanteessa yksittäisen sairauden sijaan kokonaistilanne on suositeltavaa arvioida suoraan terveydenhuollon ammattilaisen vastaanotolla tai hoidontarpeen arvioinnissa.",
+        "multisym_spec": "Terveydenhuollon ammattilaisen arvio / Yleislääketiede",
+        "multisym_ped_spec": "Terveydenhuollon ammattilaisen arvio / Lastentaudit",
+        "multisym_rat": "Laaja-alainen oirekuva ({count} oiretta) edellyttää ammattilaisen tekemää kokonaisarviota, jossa oireiden keskinäiset yhteydet ja esitiedot käydään läpi yhdessä.",
+        "multisym_muni_label": "Monioireinen oirekuva (ammattilaisarvio)",
     },
     "sv": {
         "no_sym_badge": "Inga valda symtom",
@@ -450,6 +459,13 @@ _COPY: dict[str, dict[str, str]] = {
         "general_spec": "Allmänmedicin",
         "rationale": "I bedömningen vägdes dina angivna uppgifter in ({factors}). Utifrån dessa är närmaste överensstämmelse {cond} (ICD-10: {icd10}).",
         "default_factor": "ålders- och bakgrundsprofil",
+        "multisym_badge": "Rekommendation: Bedömning av vårdpersonal",
+        "multisym_title": "Vi rekommenderar bedömning av hälso- och sjukvårdspersonal",
+        "multisym_text": "Du har valt {count} samtidiga symtom, vilket överskrider gränsen för automatiserad första bedömning ({limit_str}). Vid en mångsymtomatisk bild bör helhetssituationen bedömas direkt av hälso- och sjukvårdspersonal i stället för som ett enskilt tillstånd.",
+        "multisym_spec": "Bedömning av vårdpersonal / Allmänmedicin",
+        "multisym_ped_spec": "Bedömning av vårdpersonal / Pediatrik",
+        "multisym_rat": "En omfattande symtombild ({count} symtom) förutsätter en helhetsbedömning av vårdpersonal där symtomens samband och bakgrundsuppgifter gås igenom tillsammans.",
+        "multisym_muni_label": "Mångsymtomatisk bild (bedömning av vårdpersonal)",
     },
     "en": {
         "no_sym_badge": "No symptoms selected",
@@ -497,6 +513,13 @@ _COPY: dict[str, dict[str, str]] = {
         "general_spec": "General Practice",
         "rationale": "The assessment weighed your reported factors ({factors}), which align most closely with {cond} (ICD-10: {icd10}).",
         "default_factor": "age and background profile",
+        "multisym_badge": "Recommendation: Evaluation by a healthcare professional",
+        "multisym_title": "We recommend an evaluation by a healthcare professional",
+        "multisym_text": "You have selected {count} concurrent symptoms, which exceeds the limit set for an automated preliminary evaluation ({limit_str}). With multiple concurrent symptoms, your overall clinical picture should be evaluated directly by a healthcare professional rather than matched to a single condition.",
+        "multisym_spec": "Healthcare professional evaluation / General Practice",
+        "multisym_ped_spec": "Healthcare professional evaluation / Pediatrics",
+        "multisym_rat": "A broad symptom profile ({count} symptoms) warrants a comprehensive evaluation by a healthcare professional to review how your symptoms and medical history relate to one another.",
+        "multisym_muni_label": "Multi-symptom profile (clinician evaluation)",
     },
 }
 
@@ -508,14 +531,18 @@ def evaluate_prediction(req: PredictRequest) -> dict[str, Any]:
     spec_key = f"specialty_{lang}"
     label_key = f"label_{lang}"
 
-    probs = compute_probabilities(req)
     threshold = float(req.threshold) if req.threshold is not None else float(_ACTIVE_THRESHOLD)
+    max_symptoms = int(req.max_symptoms) if req.max_symptoms is not None else int(_ACTIVE_MAX_SYMPTOMS)
+    unique_symptoms = list(dict.fromkeys(req.symptoms))
+    sym_count = len(unique_symptoms)
 
-    if not req.symptoms:
+    if sym_count == 0:
         long_dur = req.duration in ("1-3w", ">3w")
         return {
             "lang": lang,
             "threshold": threshold,
+            "max_symptoms": max_symptoms,
+            "exceeded_symptom_limit": False,
             "duration": req.duration,
             "seek_care": False,
             "urgency_tier": "no_symptoms",
@@ -530,6 +557,37 @@ def evaluate_prediction(req: PredictRequest) -> dict[str, Any]:
             "top3": [],
             "max_probability": 0.0,
         }
+
+    if sym_count > max_symptoms:
+        geriatric_note = c["geriatric"] if req.age_band in ("70-79", "80+") else None
+        rec_spec = c["multisym_ped_spec"] if req.age_band == "0-17" else c["multisym_spec"]
+        if lang == "fi":
+            limit_str = "1 oire" if max_symptoms == 1 else f"{max_symptoms} oiretta"
+        elif lang == "sv":
+            limit_str = f"{max_symptoms} symtom"
+        else:
+            limit_str = "1 symptom" if max_symptoms == 1 else f"{max_symptoms} symptoms"
+        return {
+            "lang": lang,
+            "threshold": threshold,
+            "max_symptoms": max_symptoms,
+            "exceeded_symptom_limit": True,
+            "duration": req.duration,
+            "seek_care": True,
+            "urgency_tier": "multisymptom_referral",
+            "urgency_badge": c["multisym_badge"],
+            "urgency_title": c["multisym_title"],
+            "urgency_text": c["multisym_text"].format(count=sym_count, limit_str=limit_str),
+            "reassurance_note": c["reassurance"],
+            "geriatric_note": geriatric_note,
+            "recommended_specialty": rec_spec,
+            "exclusion_specialty": None,
+            "rationale": c["multisym_rat"].format(count=sym_count),
+            "top3": [],
+            "max_probability": 1.0,
+        }
+
+    probs = compute_probabilities(req)
 
     order = np.argsort(-probs)
     all_49: list[dict[str, Any]] = []
@@ -671,6 +729,8 @@ def evaluate_prediction(req: PredictRequest) -> dict[str, Any]:
     return {
         "lang": lang,
         "threshold": threshold,
+        "max_symptoms": max_symptoms,
+        "exceeded_symptom_limit": False,
         "duration": req.duration,
         "seek_care": seek_care,
         "urgency_tier": urgency_tier,
@@ -846,6 +906,7 @@ def serve_index():
 def get_catalog():
     return {
         "active_threshold": _ACTIVE_THRESHOLD,
+        "active_max_symptoms": _ACTIVE_MAX_SYMPTOMS,
         "municipalities": MUNICIPALITIES,
         "age_bands": AGE_BANDS_UI,
         "travel_regions": TRAVEL_REGIONS_UI,
@@ -868,11 +929,29 @@ def post_predict(req: PredictRequest):
 @app.post("/api/submissions")
 def post_submission(req: PredictRequest):
     res = evaluate_prediction(req)
-    if not res["top3"]:
+    unique_symptoms = list(dict.fromkeys(req.symptoms))
+    if not unique_symptoms:
         return {"saved": True, "id": None, "municipality": req.municipality, "prediction": res}
-    top = res["top3"][0]
+
+    if res["top3"]:
+        top = res["top3"][0]
+        top_pathology_en = top["pathology_en"]
+        top_pathology_fi = top["name_fi"]
+        icd10 = top["icd10"]
+        top_prob = top["probability"]
+        specialty_fi = top["specialty_fi"]
+    else:
+        probs = compute_probabilities(req)
+        best_idx = int(np.argmax(probs))
+        top_pathology_en = SORTED_LABELS[best_idx]
+        meta = CONDITIONS_49[top_pathology_en]
+        top_pathology_fi = meta["name_fi"]
+        icd10 = meta["icd10"]
+        top_prob = round(float(probs[best_idx]), 4)
+        specialty_fi = meta["specialty_fi"]
+
     sym_label_fi = {s["id"]: s["label_fi"] for s in SYMPTOMS_UI}
-    sym_names_fi = [sym_label_fi.get(sid, sid) for sid in req.symptoms]
+    sym_names_fi = [sym_label_fi.get(sid, sid) for sid in unique_symptoms]
     m_meta = _muni_meta(req.municipality)
 
     conn = _get_conn()
@@ -893,12 +972,12 @@ def post_submission(req: PredictRequest):
                 "M" if req.sex == "M" else "F",
                 req.duration,
                 json.dumps(sym_names_fi, ensure_ascii=False),
-                json.dumps(req.symptoms, ensure_ascii=False),
-                top["pathology_en"],
-                top["name_fi"],
-                top["icd10"],
-                top["probability"],
-                top["specialty_fi"],
+                json.dumps(unique_symptoms, ensure_ascii=False),
+                top_pathology_en,
+                top_pathology_fi,
+                icd10,
+                top_prob,
+                specialty_fi,
                 1 if res["seek_care"] else 0,
             ),
         )
@@ -914,13 +993,18 @@ def post_submission(req: PredictRequest):
 def get_municipal_stats(
     lang: str = Query(default="fi"),
     threshold: float | None = Query(default=None, ge=0.05, le=0.85),
+    max_symptoms: int | None = Query(default=None, ge=1, le=35),
 ):
-    global _ACTIVE_THRESHOLD
-    if threshold is not None:
+    global _ACTIVE_THRESHOLD, _ACTIVE_MAX_SYMPTOMS
+    if isinstance(threshold, (int, float)) and not isinstance(threshold, bool):
         _ACTIVE_THRESHOLD = float(threshold)
+    if isinstance(max_symptoms, int) and not isinstance(max_symptoms, bool):
+        _ACTIVE_MAX_SYMPTOMS = int(max_symptoms)
     thr = _ACTIVE_THRESHOLD
+    max_sym = _ACTIVE_MAX_SYMPTOMS
 
     lang = _norm_lang(lang)
+    c = _COPY[lang]
     name_key = f"name_{lang}"
     spec_key = f"specialty_{lang}"
     sym_key = f"label_{lang}"
@@ -984,18 +1068,26 @@ def get_municipal_stats(
 
         eng = r["top_pathology_en"]
         cond_meta = CONDITIONS_49.get(eng)
-        eval_label = cond_meta[name_key] if cond_meta else r["top_pathology_fi"]
-        spec_label = cond_meta[spec_key] if cond_meta else r["specialty_fi"]
+        sym_count = len(sym_ids) if sym_ids else len(syms)
 
-        # Re-evaluate clinic recommendation dynamically against clinician-set threshold
-        row_prob = float(r["top_prob"])
-        has_notable = any(sid in notable_ids for sid in sym_ids)
-        if row_prob < thr:
-            row_seek_care = False
-        elif cond_meta and not cond_meta["requires_doctor"] and not has_notable:
-            row_seek_care = r["duration"] == ">3w"
-        else:
+        # Re-evaluate clinic recommendation dynamically against clinician-set symptom limit & threshold
+        if sym_count > max_sym or eng == "MULTI_SYMPTOM_REFERRAL":
+            eval_label = c["multisym_muni_label"]
+            spec_label = c["pediatric_spec"] if r["age_band"] == "0-17" else c["general_spec"]
             row_seek_care = True
+            counts_as_finding = True
+        else:
+            eval_label = cond_meta[name_key] if cond_meta else r["top_pathology_fi"]
+            spec_label = cond_meta[spec_key] if cond_meta else r["specialty_fi"]
+            row_prob = float(r["top_prob"])
+            has_notable = any(sid in notable_ids for sid in sym_ids)
+            if row_prob < thr:
+                row_seek_care = False
+            elif cond_meta and not cond_meta["requires_doctor"] and not has_notable:
+                row_seek_care = r["duration"] == ">3w"
+            else:
+                row_seek_care = True
+            counts_as_finding = row_prob >= thr
 
         if is_curr:
             total_24h += 1
@@ -1005,7 +1097,7 @@ def get_municipal_stats(
                 b["seek_care_24h"] += 1
             if not r["is_seed"]:
                 b["live_user_count"] += 1
-            if row_prob >= thr:
+            if counts_as_finding:
                 b["eval_counts"][eval_label] = b["eval_counts"].get(eval_label, 0) + 1
                 b["specialty_counts"][spec_label] = b["specialty_counts"].get(spec_label, 0) + 1
             for s in syms:
@@ -1081,6 +1173,7 @@ def get_municipal_stats(
     return {
         "lang": lang,
         "threshold": thr,
+        "max_symptoms": max_sym,
         "summary": {
             "total_24h": total_24h,
             "total_prev_24h": total_prev_24h,
