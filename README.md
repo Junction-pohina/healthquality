@@ -2,6 +2,9 @@
 
 Junction hackathon project for the **Equity in Cancer Care** challenge. Background material (the Finnish National Cancer Strategy 2026–2035, its implementation roadmap, a link collection on cancer strategies and data, and the challenge slides) is in [`Materials/`](Materials/).
 
+Project model demo:
+https://claude.ai/artifact/YEQbzb4gRiYgSKx8GwYJBJ 
+
 ## Getting started
 
 ### Prerequisites
@@ -46,25 +49,6 @@ A pre-trained PyTorch `MLP (α=0.5)` inference checkpoint (`models/mlp_a0.5/`) i
 Then open http://127.0.0.1:8000 in your browser.
 - If you train a newer checkpoint into `runs/` (`python -m src.train --model mlp --alpha 0.5`), `src/api.py` automatically loads the latest `runs/` checkpoint first and falls back to `models/mlp_a0.5/`.
 
-## Development workflow
-
-1. Pull the latest `main` before you start:
-   ```bash
-   git checkout main
-   git pull
-   ```
-2. Create a branch for your work:
-   ```bash
-   git checkout -b your-name/short-description
-   ```
-3. Make small, focused commits with clear messages.
-4. Push your branch and open a pull request against `main`:
-   ```bash
-   git push -u origin your-name/short-description
-   ```
-5. Ask a teammate to review, then merge. Delete the branch after it is merged.
-
-Avoid committing straight to `main`, so that teammates working in parallel don't run into conflicts.
 
 ## Repository layout
 
@@ -94,13 +78,3 @@ Avoid committing straight to `main`, so that teammates working in parallel don't
 ├── requirements.txt         # Python dependencies
 └── README.md
 ```
-
-Put dataset files in `data/`. Keep notebooks for exploration; move reusable code into `src/`.
-
-Update this section as code is added.
-
-## Guidelines
-
-- Do not commit secrets, credentials, or personal or patient data.
-- Large data files belong outside the repo, or should be added to `.gitignore`.
-- Keep the README up to date when setup steps change.
