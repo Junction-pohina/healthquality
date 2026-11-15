@@ -1,10 +1,35 @@
 # Project
 
-Junction hackathon project for the **Equity in Cancer Care** challenge. Background material (the Finnish National Cancer Strategy 2026–2035, its implementation roadmap, a link collection on cancer strategies and data, and the challenge slides) is in [`Materials/`](Materials/).
-
-Diagnosis model demo: https://claude.ai/artifact/YEQbzb4gRiYgSKx8GwYJBJ 
-
 Questionnaire demo: https://claude.ai/artifact/GA4au2LQJtXveucreqJH5P
+
+Diagnosis model test results: https://claude.ai/artifact/YEQbzb4gRiYgSKx8GwYJBJ 
+
+
+## Problem & Solution
+Early cancer symptoms often mimic minor illnesses, delaying care and straining primary health systems. We built a diagnostic tool to safely lower the threshold for seeking help and route patients to the right care immediately.
+
+## Core Features (FI, SV, EN)
+* **AI Assessment:** A neural network ranks 49 conditions based on a short adaptive questionnaire, returning the top 3 probabilities.
+* **Cancer-Aware Routing:** Built-in rules prioritize symptoms lasting >3 weeks and 7 specific red flags.
+* **Actionable Output:** Gives patients an urgency tier, a recommended specialty, and a plain-language rationale.
+* **Clinician Dashboard:** Provides anonymous, regional reporting for wellbeing-counties.
+
+## Data & Model
+* Trained on **DDXPlus** (1.3 million synthetic patients) achieving 99.75% test accuracy. 
+* Uses probability to handle the uncertainty of early symptoms.
+* *Note:* Currently a proof of concept relying on synthetic data. It requires real-world data integration for clinical reliability.
+
+## Path to Implementation & Next Steps
+1. **Dynamic Scaling:** Implement Bayesian updating so the questionnaire adapts in real-time, minimizing unnecessary questions.
+2. **Public Integration:** Connect securely with existing health portals (e.g., OmaKanta, Maisa).
+3. **Real-World Validation:** Pretrain on Nordic health data, then track early users from assessment to final diagnosis. 
+4. **Continuous Learning:** Replace synthetic training labels with confirmed patient outcomes to continuously improve accuracy.
+
+## Sources
+* *Kansallinen syöpästrategia 2026–2035* (Goal 3)
+* THL, Ohjaus 21/2016: *Hoitoonpääsyn seuranta syövän hoidossa*
+* *Nordic systematic review*, Acta Oncologica 2022;61(11):1317–1331.
+* *DDXPlus synthetic dataset*: https://doi.org/10.6084/m9.figshare.22687585
 
 
 ## Getting started
