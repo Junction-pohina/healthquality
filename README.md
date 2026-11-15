@@ -2,8 +2,10 @@
 
 Junction hackathon project for the **Equity in Cancer Care** challenge. Background material (the Finnish National Cancer Strategy 2026–2035, its implementation roadmap, a link collection on cancer strategies and data, and the challenge slides) is in [`Materials/`](Materials/).
 
-Project model demo:
-https://claude.ai/artifact/YEQbzb4gRiYgSKx8GwYJBJ 
+Diagnosis model demo: https://claude.ai/artifact/YEQbzb4gRiYgSKx8GwYJBJ 
+
+Questionnaire demo: https://claude.ai/artifact/GA4au2LQJtXveucreqJH5P
+
 
 ## Getting started
 
